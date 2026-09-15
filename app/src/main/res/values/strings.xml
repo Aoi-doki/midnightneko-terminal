@@ -26,6 +26,18 @@
     <!-- Merged from termux-boot -->
     <string name="mayonaka_boot_activity_title">Boot scripts</string>
 
+    <!-- ===== Merged from termux-styling ===== -->
+
+    <string name="mayonaka_style_activity_title">Terminal style</string>
+    <string name="color_prompt">Colour scheme</string>
+    <string name="font_prompt">Font</string>
+    <string name="writing_failed">Failed to install file:\n\n</string>
+    <string name="mayonaka_style_applied">Applied %1$s</string>
+    <string name="mayonaka_style_no_license">No licence shipped for this one</string>
+    <string name="mayonaka_style_hint">Long-press an entry in either list to read its licence.
+        \n\n"Default" restores the Mayonaka scheme and JetBrainsMono Nerd Font Mono that ship with
+        the app.</string>
+
     <!-- ===== Merged from termux-widget ===== -->
 
     <string name="mayonaka_widget_activity_title">Widget &amp; shortcuts</string>

@@ -59,8 +59,14 @@ Nothing else should ever be signed with it.
 | termux-app | `com.termux.app` | the terminal itself |
 | termux-boot | `com.termux.boot` | `~/.termux/boot/` scripts run at boot |
 | termux-widget | `com.termux.widget` | home-screen widget + launcher shortcuts from `~/.shortcuts` |
-| termux-styling | `com.termux.styling` | 122 colour schemes and 38 fonts, as an in-app screen |
+| termux-styling | `com.termux.styling` | 114 colour schemes and 26 fonts, as an in-app screen |
 | termux-api | `com.termux.api` | the `termux-*` commands (battery, clipboard, camera, sensors, …) |
+
+The whole of termux-styling's asset set comes across: `assets/colors/` and `assets/fonts/`.
+Upstream's directories hold 122 and 38 *files*, which works out at **114 colour schemes** and
+**26 fonts** once the `.txt` licence files sitting beside them are discounted — those are still
+shipped, and long-pressing an entry in either picker shows its licence. The fonts are what make
+the APK large (~64 MB of the ~68 MB).
 
 Baked into the APK and written to `~/.termux` on first run (never overwriting your edits):
 
@@ -154,8 +160,8 @@ TAB   CTRL   ALT   LEFT   DOWN   RIGHT   PGDN   BKSP
 
 A third symbol row (`- _ = + { } [ ] ; ' " ` ~ < >`) can be toggled on in settings.
 
-**Settings → Mayonaka** has: colour scheme picker (all 122 merged schemes), font picker (all 38
-merged fonts), keyboard style (bordered / flat / hidden), extra-keys row count, cursor style and
+**Settings → Mayonaka** has: colour scheme picker (every merged scheme), font picker (every
+merged font), keyboard style (bordered / flat / hidden), extra-keys row count, cursor style and
 blink, terminal opacity, and a re-run provisioning button.
 
 ---

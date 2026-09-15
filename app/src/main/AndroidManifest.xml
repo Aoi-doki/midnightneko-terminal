@@ -287,6 +287,21 @@
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
+        <!-- ===================================================================================
+             Merged from termux-styling. Upstream this was a separate app whose whole UI was a
+             two-button dialog; here it is an in-app screen reached from the terminal's long-press
+             menu and from Settings, with no launcher entry of its own.
+             =================================================================================== -->
+
+        <activity
+            android:name=".styling.TermuxStyleActivity"
+            android:exported="false"
+            android:label="@string/mayonaka_style_activity_title"
+            android:parentActivityName=".app.TermuxActivity"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar"
+            tools:targetApi="n" />
+
+
         <service
             android:name=".widget.TermuxWidgetControlsProviderService"
             android:exported="true"

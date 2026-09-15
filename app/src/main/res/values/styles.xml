@@ -23,6 +23,38 @@
         <item name="rippleColor">@color/mayonaka_ripple</item>
     </style>
 
+    <!-- ===== Tappable setting rows (the style screen) ===== -->
+
+    <!-- parent="" so aapt does not infer a "Mayonaka" parent from the dotted name. -->
+    <style name="Mayonaka.SettingRow" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/mayonaka_row_background</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:layout_marginBottom">@dimen/content_padding</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingBottom">14dp</item>
+    </style>
+
+    <style name="Mayonaka.SettingRow.Title">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/mayonaka_foreground</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="Mayonaka.SettingRow.Summary">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingTop">3dp</item>
+        <item name="android:textColor">@color/mayonaka_accent_light</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+
     <!-- ===== Overrides of termux-shared dialog styles ===== -->
 
     <!-- The shared title panel paints itself red_400; repaint it violet. -->

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A tappable row: surface card, faint violet edge, violet ripple. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/mayonaka_ripple">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/mayonaka_surface" />
+            <stroke android:width="1dp" android:color="@color/mayonaka_stroke" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+</ripple>
