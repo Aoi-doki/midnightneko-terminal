@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.preference.PreferenceManager;
 
+import com.termux.BuildConfig;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxConstants;
 
@@ -62,6 +63,18 @@ public final class MayonakaDefaults {
     /** Set once the defaults have been installed at least once. */
     private static final String PREF_DEFAULTS_INSTALLED = "mayonaka_defaults_installed";
 
+    /**
+     * versionCode of the APK whose defaults were last reconciled with what is on disk.
+     *
+     * <p>This is what keeps the steady-state cost of {@link #installIfNeeded} down to four
+     * {@link File#exists()} calls. It matters because
+     * {@link com.termux.app.TermuxInstaller#setupBootstrapIfNeeded} runs its {@code whenDone}
+     * callback directly on the calling thread once the prefix exists -- which is the UI thread,
+     * on every single launch. Reading and hashing a 2.5 MB font there each time would be a
+     * self-inflicted stutter on every app start.
+     */
+    private static final String PREF_DEFAULTS_VERSION = "mayonaka_defaults_version";
+
     /** Set once the user has been offered the provisioning run, whatever they answered. */
     private static final String PREF_PROVISIONING_OFFERED = "mayonaka_provisioning_offered";
 
@@ -75,14 +88,21 @@ public final class MayonakaDefaults {
     /**
      * Install every baked-in default that is not already present.
      *
-     * <p>Cheap enough to call on every launch: when nothing has changed it is four digests and no
-     * writes. Must be called after the bootstrap has been extracted.
+     * <p>Called on every launch, from the UI thread, so the common case has to be cheap. It is:
+     * unless the APK's versionCode has changed since the last reconcile, the only work done is a
+     * {@link File#exists()} per destination, and a file that exists is left completely alone.
+     * The full compare -- read both sides, hash, decide -- runs on a first install and after an
+     * app update, which are the only times the shipped bytes can have changed.
+     *
+     * <p>Must be called after the bootstrap has been extracted: {@code $HOME} does not exist
+     * before that.
      *
      * @return {@code true} if this was the first install, i.e. the run that should offer to
      *         provision.
      */
     public static boolean installIfNeeded(@NonNull Context context) {
         boolean firstInstall = !prefs(context).getBoolean(PREF_DEFAULTS_INSTALLED, false);
+        boolean appUpdated = prefs(context).getInt(PREF_DEFAULTS_VERSION, -1) != BuildConfig.VERSION_CODE;
 
         File dataHome = TermuxConstants.TERMUX_DATA_HOME_DIR;
         if (!dataHome.isDirectory() && !dataHome.mkdirs()) {
@@ -90,12 +110,15 @@ public final class MayonakaDefaults {
             return false;
         }
 
-        installAsset(context, ASSET_COLORS, TermuxConstants.TERMUX_COLOR_PROPERTIES_FILE, false);
-        installAsset(context, ASSET_PROPERTIES, TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE, false);
-        installAsset(context, ASSET_FONT, TermuxConstants.TERMUX_FONT_FILE, false);
-        installAsset(context, ASSET_SETUP, SETUP_SCRIPT_FILE, true);
+        installAsset(context, ASSET_COLORS, TermuxConstants.TERMUX_COLOR_PROPERTIES_FILE, false, appUpdated);
+        installAsset(context, ASSET_PROPERTIES, TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE, false, appUpdated);
+        installAsset(context, ASSET_FONT, TermuxConstants.TERMUX_FONT_FILE, false, appUpdated);
+        installAsset(context, ASSET_SETUP, SETUP_SCRIPT_FILE, true, appUpdated);
 
-        prefs(context).edit().putBoolean(PREF_DEFAULTS_INSTALLED, true).apply();
+        prefs(context).edit()
+            .putBoolean(PREF_DEFAULTS_INSTALLED, true)
+            .putInt(PREF_DEFAULTS_VERSION, BuildConfig.VERSION_CODE)
+            .apply();
         return firstInstall;
     }
 
@@ -121,9 +144,17 @@ public final class MayonakaDefaults {
      * Copy one asset to {@code destination}.
      *
      * @param executable whether the destination should be marked executable once written.
+     * @param compareExisting whether an existing destination is worth reading and comparing. Only
+     *                        true on a first install or after an app update; otherwise an
+     *                        existing file is left alone without being opened at all.
      */
     private static void installAsset(@NonNull Context context, @NonNull String assetName,
-                                     @NonNull File destination, boolean executable) {
+                                     @NonNull File destination, boolean executable,
+                                     boolean compareExisting) {
+        // The cheap path: the file is there and the APK has not changed since it was last
+        // reconciled, so there is nothing this could possibly need to do.
+        if (!compareExisting && destination.exists()) return;
+
         byte[] shipped = readAsset(context, assetName);
         if (shipped == null) return;
 
