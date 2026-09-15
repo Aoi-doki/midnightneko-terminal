@@ -259,6 +259,34 @@ APK instead of four.
 
 ---
 
+## Not yet run on a phone
+
+Everything here was built and verified on a CI runner, not on a device. What that does and does
+not cover:
+
+**Checked mechanically, every build:** the release APK compiles and passes R8; its signing
+certificate matches `mayonaka.jks`; every class the merged manifest names is really in the dex;
+every `@string`/`@drawable`/`@style` it references resolves; the termux-api component is still
+exactly 33 bytes; there is exactly one launcher entry; no resource name is declared twice; and
+the unit tests cover the two pieces of string handling that fail silently — the extra-keys
+layout (every row parsed through the real `ExtraKeysInfo`) and the `termux.properties` rewrite.
+
+**Worth eyeballing on the phone the first time:**
+
+- The extra-key captions. Termux maps HOME/END/PGUP/PGDN to `⇱ ⇲ ⇑ ⇓` and TAB/BKSP/DEL to
+  `↹ ⌫ ⌦`. Those come from the system font's fallback chain, not the terminal font, and they are
+  upstream's long-standing defaults — but if any of them come up as tofu boxes, give the key an
+  explicit caption in `~/.termux/termux.properties`, e.g. `{key: 'HOME', display: 'HOME'}`.
+- The chip proportions at the real toolbar height. The stroke, radius and spacing are
+  `@dimen/mayonaka_extra_key_*`; the row height is `terminal-toolbar-height` in
+  `termux.properties`.
+- `termux-battery-status` returning JSON rather than hanging, which is the one-command check that
+  the component patch took.
+- Boot scripts actually firing, which on Samsung usually means adding Mayonaka to
+  Settings → Battery → Background usage limits → Never sleeping apps.
+
+---
+
 ## Layout
 
 ```
