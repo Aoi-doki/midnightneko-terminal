@@ -47,6 +47,11 @@ android {
         implementation "org.reactivestreams:reactive-streams:1.0.3"
         implementation "io.reactivex.rxjava2:rxjava:2.2.10"
 
+        // Merged from termux-api: the fingerprint prompt, the media player/recorder APIs, and
+        // the API preference screens.
+        implementation "androidx.biometric:biometric:1.2.0-alpha05"
+        implementation "androidx.media:media:1.7.0"
+
         implementation project(":terminal-view")
         implementation project(":termux-shared")
     }

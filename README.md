@@ -114,6 +114,30 @@ Run it by hand any time:
 mayonaka-patch-api
 ```
 
+`tools/verify_merge.py` asserts the component is still exactly 33 bytes on every CI build, so a
+class rename can never silently break the patch.
+
+### The receiver is exported
+
+The merged receiver is declared `android:exported="true"`, per the build spec.
+
+Worth knowing: it does not have to be. `$PREFIX/libexec/termux-api` execs `$PREFIX/bin/am`, which
+hands the broadcast to Mayonaka's *own* am socket server — so the sender is `com.termux` talking
+to itself, and same-UID delivery works fine against a non-exported receiver. Exported means any
+app on the device can broadcast to it, and the API surface behind it includes the camera,
+microphone, SMS and contacts.
+
+If you would rather close that off, it is one attribute in
+`app/src/main/AndroidManifest.xml`:
+
+```xml
+<receiver
+    android:name=".api.TermuxApiReceiver"
+    android:exported="false" />
+```
+
+The `termux-*` commands keep working.
+
 ---
 
 ## First run

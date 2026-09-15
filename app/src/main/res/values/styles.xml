@@ -55,6 +55,37 @@
     </style>
 
 
+    <!-- ===== Merged from termux-api ===== -->
+    <!--
+     Mayonaka is midnight in both modes, so DialogTheme and DialogTheme.Dark are the same theme;
+     DialogAPI picks between them at runtime and either way you get the dark one.
+    -->
+
+    <style name="DialogTheme" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="windowNoTitle">true</item>
+        <item name="bottomSheetDialogTheme">@style/Theme.Design.BottomSheetDialog</item>
+        <item name="colorAccent">@color/mayonaka_accent</item>
+        <item name="colorControlActivated">@color/mayonaka_accent</item>
+        <item name="colorControlHighlight">@color/mayonaka_ripple</item>
+        <item name="android:colorBackground">@color/mayonaka_surface</item>
+        <item name="android:textColorPrimary">@color/mayonaka_foreground</item>
+        <item name="android:windowBackground">@color/mayonaka_surface</item>
+    </style>
+
+    <style name="DialogTheme.Dark" parent="DialogTheme" />
+
+    <style name="TransparentTheme" parent="Theme.AppCompat">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="background">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@android:color/transparent</item>
+        <item name="colorAccent">@color/mayonaka_accent</item>
+    </style>
+
+
     <!-- ===== Overrides of termux-shared dialog styles ===== -->
 
     <!-- The shared title panel paints itself red_400; repaint it violet. -->

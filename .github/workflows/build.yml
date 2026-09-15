@@ -86,6 +86,15 @@ jobs:
           echo "actual=  $actual"
           test "$expected" = "$actual"
 
+      # Folding four apps into one is mostly a manifest exercise, and the manifest merger does
+      # not check that the classes and resources it references actually exist. This does, plus
+      # the things specific to this merge: the termux-api component string staying 33 bytes, one
+      # launcher entry, no duplicate resource names.
+      - name: Verify the merged manifest
+        run: |
+          apk="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"
+          python3 tools/verify_merge.py "$apk"
+
       - name: Report the APK contents
         run: |
           apk="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"

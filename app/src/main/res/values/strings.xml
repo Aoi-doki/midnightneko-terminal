@@ -38,6 +38,45 @@
         \n\n"Default" restores the Mayonaka scheme and JetBrainsMono Nerd Font Mono that ship with
         the app.</string>
 
+    <!-- ===== Merged from termux-api ===== -->
+
+    <string name="mayonaka_api_activity_title">Device API</string>
+
+    <string name="msg_api_info">The `termux-*` commands (battery, clipboard, camera, sensors,
+        notifications, SMS, TTS and the rest) are served by Mayonaka itself -- there is no separate
+        Termux:API app to install.
+        \n\nWhat you do still need is the `%1$s` **package**, which provides the command-line
+        front-ends: run `pkg install %1$s`. Source: %2$s
+        \n\nThat package ships $PREFIX/libexec/termux-api with the old
+        `com.termux.api/.TermuxApiReceiver` component compiled into it. Mayonaka patches it in
+        place to `com.termux/.api.TermuxApiReceiver` -- the same 33 bytes -- and re-applies the
+        patch from an apt hook after every package operation. If a termux-* command ever hangs,
+        run `mayonaka-patch-api` and try again.
+        \n\nThe two settings below decide whether those commands work when Mayonaka is in the
+        background.</string>
+
+    <string name="msg_battery_optimization_not_disabled_warning">Android battery optimisations
+        should be disabled for Mayonaka so that the termux-api helper can start it from the
+        background. This does not drain the battery: the app only runs API commands when a
+        termux-* command asks it to.
+        \n\nOn Samsung this also means adding Mayonaka to Settings → Battery → Background usage
+        limits → Never sleeping apps. See https://dontkillmyapp.com for other vendors.</string>
+    <string name="action_disable_battery_optimizations">Disable battery optimisations</string>
+
+    <string name="msg_display_over_other_apps_permission_not_granted_warning">The "display over
+        other apps" permission lets Mayonaka start the API\'s foreground activities (dialogs,
+        the fingerprint prompt, the file picker) while it is in the background. Without it those
+        commands fail on newer Android versions.</string>
+    <string name="action_grant_display_over_other_apps_permission">Grant draw-over-apps permission</string>
+
+    <string name="action_already_granted">Already granted</string>
+    <string name="action_already_disabled">Already disabled</string>
+    <string name="action_settings">Settings</string>
+
+    <string name="share_file_chooser_title">Share with</string>
+    <string name="keep_alive_service">Keeps Mayonaka running in the background so termux-* commands start quickly.</string>
+
+
     <!-- ===== Merged from termux-widget ===== -->
 
     <string name="mayonaka_widget_activity_title">Widget &amp; shortcuts</string>

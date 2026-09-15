@@ -4,6 +4,7 @@ import android.app.Application;
 import android.content.Context;
 
 import com.termux.BuildConfig;
+import com.termux.api.TermuxApiInit;
 import com.termux.shared.errors.Error;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxBootstrap;
@@ -67,6 +68,11 @@ public class TermuxApplication extends Application {
 
         // Init TermuxShellEnvironment constants and caches after everything has been setup including termux-am-socket server
         TermuxShellEnvironment.init(this);
+
+        // Start the merged Termux:API half: ResultReturner's context and the CLI listen socket.
+        // A merged app has one Application, so what used to be TermuxAPIApplication.onCreate()
+        // happens here.
+        TermuxApiInit.init(this);
 
         if (isTermuxFilesDirectoryAccessible) {
             TermuxShellEnvironment.writeEnvironmentToFile(this);
