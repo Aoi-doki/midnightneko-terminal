@@ -445,6 +445,32 @@ public final class TermuxConstants {
 
 
 
+    /*
+     * Merged plugin hosts.
+     *
+     * Mayonaka folds Termux:API, Termux:Boot, Termux:Styling and Termux:Widget into the main app,
+     * so at runtime all four are installed as TERMUX_PACKAGE_NAME -- there is no com.termux.api,
+     * com.termux.boot, com.termux.styling or com.termux.widget package on the device any more.
+     *
+     * The four *_PACKAGE_NAME constants above are deliberately left at their original values,
+     * because they double as the Java package prefix of the merged classes: the widget's main
+     * activity really is com.termux.widget.activities.TermuxWidgetMainActivity, and its intent
+     * actions really are com.termux.widget.ACTION_*. Only lookups of an actually installed
+     * package -- getContextForPackage, getPackageInfoForPackage, isAppInstalled, setClassName --
+     * must use the constants below.
+     */
+
+    /** Package hosting the merged Termux:API code. */
+    public static final String TERMUX_API_HOST_PACKAGE_NAME = TERMUX_PACKAGE_NAME;
+    /** Package hosting the merged Termux:Boot code. */
+    public static final String TERMUX_BOOT_HOST_PACKAGE_NAME = TERMUX_PACKAGE_NAME;
+    /** Package hosting the merged Termux:Styling code. */
+    public static final String TERMUX_STYLING_HOST_PACKAGE_NAME = TERMUX_PACKAGE_NAME;
+    /** Package hosting the merged Termux:Widget code. */
+    public static final String TERMUX_WIDGET_HOST_PACKAGE_NAME = TERMUX_PACKAGE_NAME;
+
+
+
 
 
     /*
@@ -452,20 +478,12 @@ public final class TermuxConstants {
      */
 
     public static final List<String> TERMUX_PLUGIN_APP_NAMES_LIST = Arrays.asList(
-        TERMUX_API_APP_NAME,
-        TERMUX_BOOT_APP_NAME,
         TERMUX_FLOAT_APP_NAME,
-        TERMUX_STYLING_APP_NAME,
-        TERMUX_TASKER_APP_NAME,
-        TERMUX_WIDGET_APP_NAME);
+        TERMUX_TASKER_APP_NAME);
 
     public static final List<String> TERMUX_PLUGIN_APP_PACKAGE_NAMES_LIST = Arrays.asList(
-        TERMUX_API_PACKAGE_NAME,
-        TERMUX_BOOT_PACKAGE_NAME,
         TERMUX_FLOAT_PACKAGE_NAME,
-        TERMUX_STYLING_PACKAGE_NAME,
-        TERMUX_TASKER_PACKAGE_NAME,
-        TERMUX_WIDGET_PACKAGE_NAME);
+        TERMUX_TASKER_PACKAGE_NAME);
 
 
 

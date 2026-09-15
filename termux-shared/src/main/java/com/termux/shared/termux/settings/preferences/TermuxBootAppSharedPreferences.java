@@ -34,7 +34,7 @@ public class TermuxBootAppSharedPreferences extends AppSharedPreferences {
      */
     @Nullable
     public static TermuxBootAppSharedPreferences build(@NonNull final Context context) {
-        Context termuxBootPackageContext = PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_BOOT_PACKAGE_NAME);
+        Context termuxBootPackageContext = PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_BOOT_HOST_PACKAGE_NAME);
         if (termuxBootPackageContext == null)
             return null;
         else
@@ -51,7 +51,7 @@ public class TermuxBootAppSharedPreferences extends AppSharedPreferences {
      * @return Returns the {@link TermuxBootAppSharedPreferences}. This will {@code null} if an exception is raised.
      */
     public static TermuxBootAppSharedPreferences build(@NonNull final Context context, final boolean exitAppOnError) {
-        Context termuxBootPackageContext = TermuxUtils.getContextForPackageOrExitApp(context, TermuxConstants.TERMUX_BOOT_PACKAGE_NAME, exitAppOnError);
+        Context termuxBootPackageContext = TermuxUtils.getContextForPackageOrExitApp(context, TermuxConstants.TERMUX_BOOT_HOST_PACKAGE_NAME, exitAppOnError);
         if (termuxBootPackageContext == null)
             return null;
         else

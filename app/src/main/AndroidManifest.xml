@@ -220,6 +220,85 @@
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
 
+        <!-- ===================================================================================
+             Merged from termux-widget. Home-screen widget and launcher shortcuts driven by
+             ~/.shortcuts. The add-on's own launcher activity and alias are dropped: Mayonaka is
+             one app with one icon, so there is nothing to enable or disable.
+             =================================================================================== -->
+
+        <receiver
+            android:name=".widget.TermuxWidgetProvider"
+            android:exported="false"
+            android:label="@string/title_shortcut_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/termux_appwidget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TermuxWidgetControlExecutorReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".widget.receivers.SystemEventReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.MY_PACKAGE_UNSUSPENDED" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name=".widget.activities.TermuxWidgetMainActivity"
+            android:exported="false"
+            android:label="@string/mayonaka_widget_activity_title"
+            android:parentActivityName=".app.activities.SettingsActivity"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar"
+            tools:targetApi="n" />
+
+        <!-- Launcher "create shortcut" flow; must stay exported for launchers to reach it. -->
+        <activity
+            android:name=".widget.TermuxCreateShortcutActivity"
+            android:exported="true"
+            android:label="@string/title_single_shortcut_name"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.CREATE_SHORTCUT" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- A shortcut can only launch an activity, never a service, so taps land here first. -->
+        <activity
+            android:name=".widget.TermuxLaunchShortcutActivity"
+            android:exported="true"
+            android:launchMode="singleInstance"
+            android:noHistory="true"
+            android:taskAffinity="${TERMUX_PACKAGE_NAME}.launchshortcut"
+            android:theme="@android:style/Theme.NoDisplay" />
+
+        <service
+            android:name=".widget.TermuxWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <service
+            android:name=".widget.TermuxWidgetControlsProviderService"
+            android:exported="true"
+            android:label="@string/title_termux_shortcuts"
+            android:permission="android.permission.BIND_CONTROLS"
+            tools:targetApi="r">
+            <intent-filter>
+                <action android:name="android.service.controls.ControlsProviderService" />
+            </intent-filter>
+        </service>
+
+
         <service
             android:name=".app.TermuxService"
             android:exported="false" />

@@ -81,7 +81,7 @@ public class TermuxUtils {
      * @return Returns the {@link Context}. This will {@code null} if an exception is raised.
      */
     public static Context getTermuxAPIPackageContext(@NonNull Context context) {
-        return PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_API_PACKAGE_NAME);
+        return PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_API_HOST_PACKAGE_NAME);
     }
 
     /**
@@ -91,7 +91,7 @@ public class TermuxUtils {
      * @return Returns the {@link Context}. This will {@code null} if an exception is raised.
      */
     public static Context getTermuxBootPackageContext(@NonNull Context context) {
-        return PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_BOOT_PACKAGE_NAME);
+        return PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_BOOT_HOST_PACKAGE_NAME);
     }
 
     /**
@@ -111,7 +111,7 @@ public class TermuxUtils {
      * @return Returns the {@link Context}. This will {@code null} if an exception is raised.
      */
     public static Context getTermuxStylingPackageContext(@NonNull Context context) {
-        return PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_STYLING_PACKAGE_NAME);
+        return PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_STYLING_HOST_PACKAGE_NAME);
     }
 
     /**
@@ -131,7 +131,7 @@ public class TermuxUtils {
      * @return Returns the {@link Context}. This will {@code null} if an exception is raised.
      */
     public static Context getTermuxWidgetPackageContext(@NonNull Context context) {
-        return PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_WIDGET_PACKAGE_NAME);
+        return PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_WIDGET_HOST_PACKAGE_NAME);
     }
 
     /** Wrapper for {@link PackageUtils#getContextForPackageOrExitApp(Context, String, boolean, String)}. */
@@ -177,7 +177,7 @@ public class TermuxUtils {
      * or disabled, otherwise {@code null}.
      */
     public static String isTermuxAPIAppInstalled(@NonNull final Context context) {
-        return PackageUtils.isAppInstalled(context, TermuxConstants.TERMUX_API_APP_NAME, TermuxConstants.TERMUX_API_PACKAGE_NAME);
+        return PackageUtils.isAppInstalled(context, TermuxConstants.TERMUX_API_APP_NAME, TermuxConstants.TERMUX_API_HOST_PACKAGE_NAME);
     }
 
     /**

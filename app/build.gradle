@@ -42,6 +42,11 @@ android {
         implementation "io.noties.markwon:recycler:$markwonVersion"
         implementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava'
 
+        // Merged from termux-widget: TermuxWidgetControlsProviderService publishes its controls
+        // through a Reactive Streams Publisher.
+        implementation "org.reactivestreams:reactive-streams:1.0.3"
+        implementation "io.reactivex.rxjava2:rxjava:2.2.10"
+
         implementation project(":terminal-view")
         implementation project(":termux-shared")
     }

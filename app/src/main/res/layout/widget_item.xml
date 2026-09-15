@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ One shortcut row in the widget list.
+
+ The FrameLayout wrapper is kept from upstream: a ListView row's own margins are ignored, so the
+ padding has to live on a wrapper.
+ http://stackoverflow.com/questions/16278159/why-linearlayouts-margin-is-being-ignored-if-used-as-listview-row-view
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_item_layout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/ripple_mask"
+    android:paddingStart="14dp"
+    android:paddingTop="11dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="11dp">
+
+    <TextView
+        android:id="@+id/widget_item"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/mayonaka_foreground"
+        android:textSize="14sp" />
+
+</FrameLayout>

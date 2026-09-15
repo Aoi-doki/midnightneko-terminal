@@ -29,7 +29,7 @@ public class TermuxAPIShellEnvironment {
     public static HashMap<String, String> getEnvironment(@NonNull Context currentPackageContext) {
         if (TermuxUtils.isTermuxAPIAppInstalled(currentPackageContext) != null) return null;
 
-        String packageName = TermuxConstants.TERMUX_API_PACKAGE_NAME;
+        String packageName = TermuxConstants.TERMUX_API_HOST_PACKAGE_NAME;
         PackageInfo packageInfo = PackageUtils.getPackageInfoForPackage(currentPackageContext, packageName);
         if (packageInfo == null) return null;
 

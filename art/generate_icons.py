@@ -275,6 +275,76 @@ def write_banner():
     print("wrote", os.path.relpath(path, REPO_ROOT))
 
 
+
+# --------------------------------------------------------------------------------------------
+# Widget preview
+# --------------------------------------------------------------------------------------------
+
+FONT_PATH = os.path.join(REPO_ROOT, "app", "src", "main", "assets", "mayonaka", "font.ttf")
+
+SURFACE = (0x1A, 0x1A, 0x24, 255)
+MUTED = (0x2A, 0x2A, 0x3A, 255)
+FOREGROUND = (0xE4, 0xE2, 0xF0, 255)
+FOREGROUND_DIM = (0x9A, 0x95, 0xB5, 255)
+STROKE = (0x8B, 0x5C, 0xF6, 0x59)
+
+
+def write_widget_preview():
+    """The image the launcher's widget picker shows: a mock of the shortcut list."""
+    from PIL import ImageFont
+
+    w, h = 360, 360
+    radius = 30
+    ss = 2  # Text renders better at 2x than at the 8x used for the icon shapes.
+
+    img = Image.new("RGBA", (w * ss, h * ss), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    draw.rounded_rectangle([0, 0, w * ss - 1, h * ss - 1], radius=radius * ss, fill=BACKGROUND)
+
+    # Header.
+    header_h = 62 * ss
+    draw.rounded_rectangle([0, 0, w * ss - 1, header_h + radius * ss],
+                           radius=radius * ss, fill=SURFACE)
+    draw.rectangle([0, header_h, w * ss - 1, header_h + radius * ss], fill=BACKGROUND)
+    draw.line([0, header_h, w * ss, header_h], fill=(0x24, 0x1E, 0x33, 255), width=ss)
+
+    try:
+        title_font = ImageFont.truetype(FONT_PATH, 26 * ss)
+        row_font = ImageFont.truetype(FONT_PATH, 22 * ss)
+    except (OSError, IOError):
+        print("warning: %s not found, widget preview will use the default font" % FONT_PATH)
+        title_font = row_font = ImageFont.load_default()
+
+    draw.text((22 * ss, 18 * ss), "Mayonaka", font=title_font, fill=FOREGROUND)
+
+    # Refresh glyph: three quarters of a ring with an arrow head, drawn rather than typed so it
+    # does not depend on the font having the codepoint.
+    cx, cy, r = (w - 36) * ss, 31 * ss, 11 * ss
+    draw.arc([cx - r, cy - r, cx + r, cy + r], start=40, end=330,
+             fill=ACCENT, width=max(2, 2 * ss))
+    draw.polygon([(cx + r, cy - r + 2 * ss), (cx + r + 4 * ss, cy - 2 * ss),
+                  (cx + r - 5 * ss, cy - 2 * ss)], fill=ACCENT)
+
+    rows = ["tmux-main", "update-packages", "ssh-victus", "nyafetch"]
+    y = header_h + 16 * ss
+    row_h = 46 * ss
+    for i, row in enumerate(rows):
+        draw.text((22 * ss, y + 12 * ss), row, font=row_font, fill=FOREGROUND)
+        if i != len(rows) - 1:
+            draw.line([18 * ss, y + row_h, (w - 18) * ss, y + row_h], fill=MUTED, width=1)
+        y += row_h
+
+    # Violet hairline border, last so it sits on top of the header fill.
+    draw.rounded_rectangle([0, 0, w * ss - 1, h * ss - 1], radius=radius * ss,
+                           outline=(0x4A, 0x36, 0x7A, 255), width=max(1, ss))
+
+    out = img.resize((w, h), Image.LANCZOS)
+    path = os.path.join(RES, "drawable", "widget_preview.png")
+    out.save(path)
+    print("wrote", os.path.relpath(path, REPO_ROOT))
+
+
 def main():
     if not os.path.isdir(RES):
         sys.exit("resource directory not found: " + RES)
@@ -282,6 +352,7 @@ def main():
     write_notification_icon()
     write_legacy_icons()
     write_banner()
+    write_widget_preview()
 
 
 if __name__ == "__main__":

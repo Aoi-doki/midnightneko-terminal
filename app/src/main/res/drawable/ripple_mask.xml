@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Touch feedback for a single shortcut row in the widget list. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/mayonaka_ripple">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/mayonaka_accent" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+</ripple>
