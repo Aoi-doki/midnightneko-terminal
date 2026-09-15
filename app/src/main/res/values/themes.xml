@@ -128,13 +128,7 @@
         <item name="extraKeysBarDividerColor">@color/mayonaka_divider</item>
         <item name="extraKeysBarDividerHeight">@dimen/mayonaka_extra_keys_divider_height</item>
 
-        <!--
-         Translucent so the terminal opacity setting has something to reveal. At 100% opacity the
-         window background is painted fully opaque by updateBackgroundColor() and this changes
-         nothing.
-        -->
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/mayonaka_background</item>
     </style>
 
 
@@ -149,6 +143,28 @@
         <item name="extraKeysButtonSpacing">0dp</item>
         <item name="extraKeysButtonBackgroundColor">@color/mayonaka_background</item>
         <item name="extraKeysBarDividerHeight">0dp</item>
+    </style>
+
+
+    <!--
+     Terminal opacity needs a translucent window: the colour parser forces every terminal colour
+     to full alpha, so the transparency has to come from the window background, and an opaque
+     window has nothing behind it to reveal.
+
+     It is opt-in rather than always on. A translucent window keeps whatever is behind it drawn
+     and composited for as long as the terminal is open, and worse, it is transparent until
+     something paints it, which on a first launch means seeing the launcher through the app for
+     the whole bootstrap install. At the default 100% opacity none of that is worth paying for,
+     so the activity only picks one of these up when the opacity has actually been turned down.
+    -->
+    <style name="Theme.TermuxActivity.DayNight.NoActionBar.Translucent" parent="Theme.TermuxActivity.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.TermuxActivity.DayNight.NoActionBar.FlatKeys.Translucent" parent="Theme.TermuxActivity.DayNight.NoActionBar.FlatKeys">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
     </style>
 
 </resources>

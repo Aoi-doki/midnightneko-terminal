@@ -65,6 +65,7 @@ import com.termux.view.TerminalViewClient;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
@@ -239,6 +240,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         mRunProvisioningWhenReady = getIntent() != null
             && getIntent().getBooleanExtra(EXTRA_RUN_PROVISIONING, false);
+
+        // updateBackgroundColor() only runs once a session exists, and on a translucent window
+        // "not painted yet" means "see-through" -- which on a first launch would show the
+        // launcher through the app for the whole bootstrap install. Paint it now; the session
+        // client repaints it with the real scheme colour as soon as there is one.
+        getWindow().getDecorView().setBackgroundColor(
+            MayonakaPreferences.applyTerminalOpacity(this,
+                ContextCompat.getColor(this, R.color.mayonaka_background)));
 
         setMargins();
 
@@ -493,11 +502,23 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
     private void setActivityTheme() {
-        // The extra keys chip geometry comes from theme attributes, so the "flat" keyboard style
-        // is a theme overlay rather than a pile of runtime setters. This has to happen before
-        // super.onCreate(), which is why it lives here.
-        if (MayonakaPreferences.getKeyboardStyle(this) == MayonakaPreferences.KeyboardStyle.FLAT)
+        // Two Mayonaka settings are theme-level, so they are resolved to a theme here -- before
+        // super.onCreate(), which is the last moment a theme can still be chosen.
+        //
+        //  - the extra keys chip geometry comes from theme attributes, so "flat" is an overlay
+        //    rather than a pile of runtime setters;
+        //  - terminal opacity needs android:windowIsTranslucent, which is not settable at all
+        //    after the window exists, and which is only worth paying for when the opacity has
+        //    actually been turned down.
+        boolean flatKeys = MayonakaPreferences.getKeyboardStyle(this) == MayonakaPreferences.KeyboardStyle.FLAT;
+        boolean translucent = MayonakaPreferences.getTerminalOpacity(this) < MayonakaPreferences.MAX_TERMINAL_OPACITY;
+
+        if (flatKeys && translucent)
+            setTheme(R.style.Theme_TermuxActivity_DayNight_NoActionBar_FlatKeys_Translucent);
+        else if (flatKeys)
             setTheme(R.style.Theme_TermuxActivity_DayNight_NoActionBar_FlatKeys);
+        else if (translucent)
+            setTheme(R.style.Theme_TermuxActivity_DayNight_NoActionBar_Translucent);
 
         // Update NightMode.APP_NIGHT_MODE
         TermuxThemeUtils.setAppNightMode(mProperties.getNightMode());
