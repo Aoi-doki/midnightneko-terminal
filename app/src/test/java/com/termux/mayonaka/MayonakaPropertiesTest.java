@@ -4,12 +4,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 
-import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
@@ -17,7 +17,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -25,27 +24,22 @@ import java.util.Map;
  * {@link MayonakaProperties} rewrites a file the user owns and may have edited by hand, so the
  * things worth pinning down are what it leaves alone, not just what it changes.
  *
- * <p>These run against the real path {@link TermuxConstants#TERMUX_PROPERTIES_PRIMARY_FILE}
- * points at. Under Robolectric that is an ordinary directory on the build machine, not a device.
+ * <p>These run against a temporary file, not the real
+ * {@code /data/data/com.termux/files/home/.termux/termux.properties}: a build machine has no
+ * business creating anything under /data, and whether it can depends on who is running the build.
+ * That is what the package-private {@code *In(File, ...)} overloads are for.
  */
 @RunWith(RobolectricTestRunner.class)
 public class MayonakaPropertiesTest {
 
-    private static final File FILE = TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE;
+    @Rule
+    public final TemporaryFolder folder = new TemporaryFolder();
 
-    private byte[] saved;
+    private File FILE;
 
     @Before
-    public void setUp() throws IOException {
-        saved = FILE.isFile() ? Files.readAllBytes(FILE.toPath()) : null;
-        File parent = FILE.getParentFile();
-        if (parent != null) parent.mkdirs();
-    }
-
-    @After
-    public void tearDown() throws IOException {
-        if (saved != null) Files.write(FILE.toPath(), saved);
-        else FILE.delete();
+    public void setUp() {
+        FILE = new File(folder.getRoot(), "termux.properties");
     }
 
     private void write(String content) throws IOException {
@@ -65,7 +59,7 @@ public class MayonakaPropertiesTest {
             + "\n"
             + "# trailing comment\n");
 
-        assertTrue(MayonakaProperties.set(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE, "bar"));
+        assertTrue(MayonakaProperties.setIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE, "bar"));
 
         String result = read();
         assertTrue(result, result.contains("# a comment"));
@@ -79,7 +73,7 @@ public class MayonakaPropertiesTest {
     public void appendsAKeyThatIsNotThereYet() throws IOException {
         write("existing = 1\n");
 
-        assertTrue(MayonakaProperties.set(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE, "600"));
+        assertTrue(MayonakaProperties.setIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE, "600"));
 
         String result = read();
         assertTrue(result, result.contains("existing = 1"));
@@ -90,8 +84,8 @@ public class MayonakaPropertiesTest {
     public void createsTheFileWhenItIsMissing() throws IOException {
         FILE.delete();
 
-        assertTrue(MayonakaProperties.set(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE, "bar"));
-        assertEquals("bar", MayonakaProperties.get(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE));
+        assertTrue(MayonakaProperties.setIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE, "bar"));
+        assertEquals("bar", MayonakaProperties.getIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE));
     }
 
     /**
@@ -106,7 +100,7 @@ public class MayonakaPropertiesTest {
             + "]\n"
             + "after = kept\n");
 
-        assertTrue(MayonakaProperties.set(TermuxPropertyConstants.KEY_EXTRA_KEYS,
+        assertTrue(MayonakaProperties.setIn(FILE, TermuxPropertyConstants.KEY_EXTRA_KEYS,
             MayonakaProperties.buildExtraKeys(2)));
 
         String result = read();
@@ -114,7 +108,7 @@ public class MayonakaPropertiesTest {
         assertTrue("continuation lines must not survive: " + result, !result.contains("['CTRL','ALT']"));
         assertTrue(result, result.contains("after = kept"));
         assertEquals(MayonakaProperties.buildExtraKeys(2),
-            MayonakaProperties.get(TermuxPropertyConstants.KEY_EXTRA_KEYS));
+            MayonakaProperties.getIn(FILE, TermuxPropertyConstants.KEY_EXTRA_KEYS));
     }
 
     @Test
@@ -123,7 +117,7 @@ public class MayonakaPropertiesTest {
             + " ['ESC','TAB'] \\\n"
             + "]\n");
 
-        assertEquals("[['ESC','TAB']]", MayonakaProperties.get(TermuxPropertyConstants.KEY_EXTRA_KEYS));
+        assertEquals("[['ESC','TAB']]", MayonakaProperties.getIn(FILE, TermuxPropertyConstants.KEY_EXTRA_KEYS));
     }
 
     @Test
@@ -131,7 +125,7 @@ public class MayonakaPropertiesTest {
         write("terminal-cursor-style = block\n"
             + "terminal-cursor-style = underline\n");
 
-        assertTrue(MayonakaProperties.set(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE, "bar"));
+        assertTrue(MayonakaProperties.setIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE, "bar"));
 
         String result = read();
         assertEquals("exactly one live assignment should remain:\n" + result,
@@ -144,9 +138,9 @@ public class MayonakaPropertiesTest {
         write("# terminal-cursor-style = block\n"
             + "! terminal-cursor-blink-rate = 100\n");
 
-        assertNull(MayonakaProperties.get(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE));
-        assertNull(MayonakaProperties.get(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE));
-        assertNull(MayonakaProperties.get("no-such-key"));
+        assertNull(MayonakaProperties.getIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE));
+        assertNull(MayonakaProperties.getIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE));
+        assertNull(MayonakaProperties.getIn(FILE, "no-such-key"));
     }
 
     @Test
@@ -154,17 +148,17 @@ public class MayonakaPropertiesTest {
         for (int rows = 0; rows <= MayonakaProperties.EXTRA_KEYS_ROWS.length; rows++) {
             write(TermuxPropertyConstants.KEY_EXTRA_KEYS + " = "
                 + MayonakaProperties.buildExtraKeys(rows) + "\n");
-            assertEquals("row count " + rows, rows, MayonakaProperties.currentExtraKeysRows());
+            assertEquals("row count " + rows, rows, MayonakaProperties.currentExtraKeysRowsIn(FILE));
         }
     }
 
     @Test
     public void reportsAHandEditedLayoutAsCustom() throws IOException {
         write(TermuxPropertyConstants.KEY_EXTRA_KEYS + " = [['ESC','CTRL','ALT','TAB']]\n");
-        assertEquals(-1, MayonakaProperties.currentExtraKeysRows());
+        assertEquals(-1, MayonakaProperties.currentExtraKeysRowsIn(FILE));
 
         FILE.delete();
-        assertEquals(-1, MayonakaProperties.currentExtraKeysRows());
+        assertEquals(-1, MayonakaProperties.currentExtraKeysRowsIn(FILE));
     }
 
     @Test
@@ -174,10 +168,10 @@ public class MayonakaPropertiesTest {
         Map<String, String> values = new LinkedHashMap<>();
         values.put(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE, "bar");
         values.put(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE, "350");
-        assertTrue(MayonakaProperties.set(values));
+        assertTrue(MayonakaProperties.setIn(FILE, values));
 
-        assertEquals("bar", MayonakaProperties.get(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE));
-        assertEquals("350", MayonakaProperties.get(TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE));
+        assertEquals("bar", MayonakaProperties.getIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE));
+        assertEquals("350", MayonakaProperties.getIn(FILE, TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE));
     }
 
     /**
@@ -187,10 +181,10 @@ public class MayonakaPropertiesTest {
     @Test
     public void theResultParsesAsAPropertiesFile() throws IOException {
         write("# comment\nexisting = 1\n");
-        MayonakaProperties.set(TermuxPropertyConstants.KEY_EXTRA_KEYS, MayonakaProperties.buildExtraKeys(3));
+        MayonakaProperties.setIn(FILE, TermuxPropertyConstants.KEY_EXTRA_KEYS, MayonakaProperties.buildExtraKeys(3));
 
         java.util.Properties properties = new java.util.Properties();
-        try (java.io.Reader reader = Files.newBufferedReader(Paths.get(FILE.getAbsolutePath()))) {
+        try (java.io.Reader reader = Files.newBufferedReader(FILE.toPath())) {
             properties.load(reader);
         }
 

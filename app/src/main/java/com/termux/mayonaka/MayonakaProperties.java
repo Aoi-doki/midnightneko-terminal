@@ -68,7 +68,13 @@ public final class MayonakaProperties {
      */
     @Nullable
     public static String get(@NonNull String key) {
-        List<String> lines = readLines(TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE);
+        return getIn(TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE, key);
+    }
+
+    /** {@link #get} against an explicit file, so the parsing can be tested off-device. */
+    @Nullable
+    static String getIn(@NonNull File file, @NonNull String key) {
+        List<String> lines = readLines(file);
         if (lines == null) return null;
 
         for (int i = 0; i < lines.size(); i = logicalLineEnd(lines, i) + 1) {
@@ -122,7 +128,12 @@ public final class MayonakaProperties {
      *         as one of its own, and must not overwrite it without being asked.
      */
     public static int currentExtraKeysRows() {
-        String current = get(com.termux.shared.termux.settings.properties.TermuxPropertyConstants.KEY_EXTRA_KEYS);
+        return currentExtraKeysRowsIn(TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE);
+    }
+
+    /** {@link #currentExtraKeysRows} against an explicit file. */
+    static int currentExtraKeysRowsIn(@NonNull File file) {
+        String current = getIn(file, com.termux.shared.termux.settings.properties.TermuxPropertyConstants.KEY_EXTRA_KEYS);
         if (current == null) return -1;
 
         String normalised = current.replaceAll("\\s+", "");
@@ -138,9 +149,14 @@ public final class MayonakaProperties {
      * @return {@code true} if the file was written.
      */
     public static boolean set(@NonNull String key, @NonNull String value) {
+        return setIn(TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE, key, value);
+    }
+
+    /** {@link #set(String, String)} against an explicit file. */
+    static boolean setIn(@NonNull File file, @NonNull String key, @NonNull String value) {
         Map<String, String> single = new LinkedHashMap<>();
         single.put(key, value);
-        return set(single);
+        return setIn(file, single);
     }
 
     /**
@@ -153,9 +169,19 @@ public final class MayonakaProperties {
      * @return {@code true} if the file was written.
      */
     public static boolean set(@NonNull Map<String, String> values) {
+        return setIn(TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE, values);
+    }
+
+    /**
+     * {@link #set} against an explicit file.
+     *
+     * <p>Having the file be a parameter rather than a constant is what lets the rewrite be tested
+     * at all: {@link TermuxConstants#TERMUX_PROPERTIES_PRIMARY_FILE} is under /data/data, which a
+     * build machine has no business creating.
+     */
+    static boolean setIn(@NonNull File file, @NonNull Map<String, String> values) {
         if (values.isEmpty()) return true;
 
-        File file = TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE;
         File parent = file.getParentFile();
         if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
             Logger.logError(LOG_TAG, "Could not create " + parent);
