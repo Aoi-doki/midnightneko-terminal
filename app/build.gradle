@@ -255,6 +255,15 @@ task downloadBootstraps() {
     }
 }
 
+// termux-bootstrap-zip.S pulls the archive in with .incbin, so the zip has to be on disk before
+// *the native build* runs, not merely before javaCompile (which is all upstream wires up -- that
+// ordering happens to hold locally and does not hold on a clean CI checkout).
+tasks.matching {
+    it.name.startsWith("externalNativeBuild") || it.name.startsWith("configureNdkBuild")
+}.configureEach {
+    dependsOn downloadBootstraps
+}
+
 afterEvaluate {
     android.applicationVariants.all { variant ->
         variant.javaCompileProvider.get().dependsOn(downloadBootstraps)
