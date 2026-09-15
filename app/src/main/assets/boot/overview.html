@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boot scripts</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0f;
+    --surface: #1a1a24;
+    --muted: #2a2a3a;
+    --fg: #e4e2f0;
+    --dim: #9a95b5;
+    --accent: #8b5cf6;
+    --accent-light: #a78bfa;
+  }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  body {
+    padding: 20px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+    font: 15px/1.6 -apple-system, "Roboto", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h1 .jp { color: var(--accent); font-weight: 400; }
+  .lede { margin: 0 0 24px; color: var(--dim); }
+  h2 {
+    margin: 28px 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-light);
+  }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin-bottom: 8px; }
+  p { margin: 0 0 12px; }
+  code, pre {
+    font-family: "JetBrainsMono Nerd Font Mono", "Roboto Mono", monospace;
+    font-size: 13px;
+  }
+  code {
+    background: var(--muted);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--muted);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 0 0 12px;
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; }
+  a { color: var(--accent-light); }
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--muted);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--dim);
+    margin: 0 0 12px;
+  }
+  .note strong { color: var(--fg); }
+</style>
+</head>
+<body>
+
+<h1>Boot scripts <span class="jp">起動</span></h1>
+<p class="lede">Mayonaka runs whatever it finds in <code>~/.termux/boot/</code> when the device
+starts up.</p>
+
+<h2>Usage</h2>
+<ul>
+  <li>Create the directory: <code>mkdir -p ~/.termux/boot</code></li>
+  <li>Drop executable scripts in it. They run in sorted order, so name them
+      <code>10-first</code>, <code>20-second</code> and so on.</li>
+  <li>Each script runs as a background job, not in a visible session.</li>
+  <li>Run <code>termux-wake-lock</code> first if the device must stay awake.</li>
+</ul>
+
+<h2>Example</h2>
+<p>To start an sshd server and hold a wake lock at boot, put this in
+<code>~/.termux/boot/10-sshd</code>:</p>
+
+<pre><code>#!/data/data/com.termux/files/usr/bin/sh
+termux-wake-lock
+sshd</code></pre>
+
+<p>Then make it executable:</p>
+
+<pre><code>chmod +x ~/.termux/boot/10-sshd</code></pre>
+
+<h2>If nothing runs</h2>
+<div class="note">
+  Some vendors — Samsung included — aggressively restrict what may start at boot.
+  If your scripts do not run, put Mayonaka on the <strong>never sleeping apps</strong> list and
+  exclude it from battery optimisation:
+  <br><br>
+  Settings → Battery → Background usage limits → Never sleeping apps → add Mayonaka
+</div>
+<p>Scripts are logged under the <code>termux</code> tag, so
+<code>logcat -s termux</code> from an adb shell will show what fired.</p>
+
+<h2>Upstream</h2>
+<p>This is <a href="https://github.com/termux/termux-boot">termux-boot</a>, merged into Mayonaka
+rather than installed as a separate app.</p>
+
+</body>
+</html>

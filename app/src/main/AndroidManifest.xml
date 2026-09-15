@@ -193,6 +193,33 @@
             android:exported="false" />
 
 
+        <!-- ===================================================================================
+             Merged from termux-boot. Runs ~/.termux/boot/ scripts once the device has booted.
+             Class names are relative, so `.boot.BootReceiver` resolves against com.termux.
+             RECEIVE_BOOT_COMPLETED and WAKE_LOCK are already declared above.
+             =================================================================================== -->
+
+        <activity
+            android:name=".boot.BootActivity"
+            android:exported="false"
+            android:label="@string/mayonaka_boot_activity_title"
+            android:parentActivityName=".app.activities.SettingsActivity"
+            tools:targetApi="n" />
+
+        <receiver
+            android:name=".boot.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".boot.BootJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+
         <service
             android:name=".app.TermuxService"
             android:exported="false" />

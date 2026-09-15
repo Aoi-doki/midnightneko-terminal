@@ -346,8 +346,8 @@ public final class TermuxConstants {
      * Termux and its plugin app and package names and urls.
      */
 
-    /** Termux app name */
-    public static final String TERMUX_APP_NAME = "Termux"; // Default: "Termux"
+    /** Termux app name. Mayonaka rebrands the label only; the package name below is untouched. */
+    public static final String TERMUX_APP_NAME = "Mayonaka"; // Default: "Termux"
     /** Termux package name */
     public static final String TERMUX_PACKAGE_NAME = "com.termux"; // Default: "com.termux"
     /** Termux GitHub repo name */

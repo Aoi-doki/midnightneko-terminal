@@ -21,6 +21,9 @@
     <string name="mayonaka_provisioning_later">Later</string>
     <string name="mayonaka_provisioning_no_session">Open a terminal session first.</string>
 
+    <!-- Merged from termux-boot -->
+    <string name="mayonaka_boot_activity_title">Boot scripts</string>
+
     <string name="application_name">&TERMUX_APP_NAME;</string>
     <string name="shared_user_label">&TERMUX_APP_NAME; user</string>
 
