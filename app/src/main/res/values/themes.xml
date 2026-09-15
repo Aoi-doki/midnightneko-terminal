@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+     Mayonaka is a single-look app: it is midnight all the time, so the "Light" themes inherited
+     from termux-shared are redefined here on top of the dark Material bases instead of being
+     forked into a values-night variant. Names are kept so that every style declared in
+     termux-shared with an explicit parent pointer (Theme.BaseActivity.DayNight.*,
+     Theme.MediaViewActivity.*, Theme.MarkdownViewActivity.*) picks these up during resource
+     merging without needing to be redeclared.
+    -->
+
+    <!-- ===== Base activity themes (override termux-shared) ===== -->
+
+    <style name="Theme.BaseActivity.Light.DarkActionBar" parent="Theme.MaterialComponents">
+        <!-- Primary brand color: violet. -->
+        <item name="colorPrimary">@color/mayonaka_accent</item>
+        <item name="colorPrimaryVariant">@color/mayonaka_accent_dark</item>
+        <item name="colorOnPrimary">@color/mayonaka_foreground</item>
+
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/mayonaka_accent_light</item>
+        <item name="colorSecondaryVariant">@color/mayonaka_accent</item>
+        <item name="colorOnSecondary">@color/mayonaka_background</item>
+
+        <!-- Surfaces. -->
+        <item name="colorSurface">@color/mayonaka_surface</item>
+        <item name="colorOnSurface">@color/mayonaka_foreground</item>
+        <item name="android:colorBackground">@color/mayonaka_background</item>
+        <item name="colorOnBackground">@color/mayonaka_foreground</item>
+        <item name="android:windowBackground">@color/mayonaka_background</item>
+
+        <!-- System bars. -->
+        <item name="android:statusBarColor" tools:targetApi="l">@color/mayonaka_background</item>
+        <item name="android:navigationBarColor" tools:targetApi="l">@color/mayonaka_background</item>
+        <item name="colorPrimaryDark" tools:targetApi="l">@color/mayonaka_background</item>
+
+        <!-- Text. -->
+        <item name="android:textColorPrimary">@color/mayonaka_foreground</item>
+        <item name="android:textColorSecondary">@color/mayonaka_foreground_dim</item>
+        <item name="android:textColorLink">@color/mayonaka_accent_light</item>
+
+        <!-- Controls. -->
+        <item name="colorAccent">@color/mayonaka_accent</item>
+        <item name="colorControlActivated">@color/mayonaka_accent</item>
+        <item name="colorControlHighlight">@color/mayonaka_ripple</item>
+        <item name="android:listDivider">@color/mayonaka_muted</item>
+
+        <!--
+         Dialog themes MUST be defined on the application theme so that dialogs shown from a
+         non-activity context with TYPE_SYSTEM_ALERT resolve their attributes.
+        -->
+        <item name="alertDialogTheme">@style/ThemeOverlay.BaseDialog.DayNight</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.BaseDialog.DayNight</item>
+    </style>
+
+    <style name="Theme.BaseActivity.Light.NoActionBar" parent="Theme.BaseActivity.Light.DarkActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+
+    <!-- ===== Dialogs (override termux-shared) ===== -->
+
+    <style name="ThemeOverlay.BaseDialog.Light" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="colorPrimary">@color/mayonaka_accent</item>
+        <item name="colorPrimaryVariant">@color/mayonaka_accent_dark</item>
+        <item name="colorOnPrimary">@color/mayonaka_foreground</item>
+
+        <item name="colorSecondary">@color/mayonaka_accent_light</item>
+        <item name="colorSecondaryVariant">@color/mayonaka_accent</item>
+        <item name="colorOnSecondary">@color/mayonaka_background</item>
+
+        <item name="colorSurface">@color/mayonaka_surface</item>
+        <item name="colorOnSurface">@color/mayonaka_foreground</item>
+        <item name="android:textColorPrimary">@color/mayonaka_foreground</item>
+        <item name="android:textColorSecondary">@color/mayonaka_foreground_dim</item>
+
+        <item name="colorAccent">@color/mayonaka_accent</item>
+        <item name="colorControlActivated">@color/mayonaka_accent</item>
+        <item name="colorControlHighlight">@color/mayonaka_ripple</item>
+
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Mayonaka.Dialog</item>
+
+        <item name="materialAlertDialogTitlePanelStyle">@style/BaseDialog.Title.Panel</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/BaseDialog.Message.Text.Light</item>
+    </style>
+
+
+    <!-- ===== App themes ===== -->
+
+    <style name="Theme.TermuxApp.Light.DarkActionBar" parent="Theme.BaseActivity.Light.DarkActionBar" />
+    <style name="Theme.TermuxApp.Light.NoActionBar" parent="Theme.BaseActivity.Light.NoActionBar" />
+    <style name="Theme.TermuxApp.DayNight.DarkActionBar" parent="Theme.BaseActivity.DayNight.DarkActionBar" />
+    <style name="Theme.TermuxApp.DayNight.NoActionBar" parent="Theme.BaseActivity.DayNight.NoActionBar" />
+
+
+    <!-- ===== The terminal activity itself ===== -->
+
+    <style name="Theme.TermuxActivity.DayNight.NoActionBar" parent="Theme.TermuxApp.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/mayonaka_accent</item>
+        <item name="colorPrimaryVariant">@color/mayonaka_accent_dark</item>
+
+        <item name="android:windowBackground">@color/mayonaka_background</item>
+
+        <!-- Avoid the action mode toolbar pushing down terminal content when selecting text. -->
+        <item name="android:windowActionModeOverlay">true</item>
+
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+
+        <item name="android:windowAllowReturnTransitionOverlap">true</item>
+        <item name="android:windowAllowEnterTransitionOverlap">true</item>
+
+        <!-- Left drawer. -->
+        <item name="buttonBarButtonStyle">@style/TermuxActivity.Drawer.ButtonBarStyle.Dark</item>
+        <item name="termuxActivityDrawerBackground">@color/mayonaka_surface</item>
+        <item name="termuxActivityDrawerImageTint">@color/mayonaka_accent_light</item>
+
+        <!-- Extra keys: bordered violet chips. -->
+        <item name="extraKeysButtonTextColor">@color/mayonaka_foreground</item>
+        <item name="extraKeysButtonActiveTextColor">@color/mayonaka_background</item>
+        <item name="extraKeysButtonBackgroundColor">@color/mayonaka_key_fill</item>
+        <item name="extraKeysButtonActiveBackgroundColor">@color/mayonaka_key_fill_active</item>
+    </style>
+
+</resources>

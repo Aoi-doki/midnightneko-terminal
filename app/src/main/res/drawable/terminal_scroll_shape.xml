@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Terminal scrollbar thumb. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/mayonaka_accent_dim" />
+    <size android:width="4dp" />
+    <corners android:radius="2dp" />
+</shape>

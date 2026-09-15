@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Rounded corners everywhere. -->
+    <style name="ShapeAppearance.Mayonaka.Dialog" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="TermuxAlertDialogStyle" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">@color/mayonaka_accent</item>
+        <item name="android:colorBackground">@color/mayonaka_surface</item>
+        <item name="android:textColorPrimary">@color/mayonaka_foreground</item>
+    </style>
+
+    <style name="TermuxActivity.Drawer.ButtonBarStyle.Light" parent="@style/Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/mayonaka_foreground</item>
+        <item name="rippleColor">@color/mayonaka_ripple</item>
+    </style>
+
+    <style name="TermuxActivity.Drawer.ButtonBarStyle.Dark" parent="@style/Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/mayonaka_foreground</item>
+        <item name="rippleColor">@color/mayonaka_ripple</item>
+    </style>
+
+    <!-- ===== Overrides of termux-shared dialog styles ===== -->
+
+    <!-- The shared title panel paints itself red_400; repaint it violet. -->
+    <style name="BaseDialog.Title.Panel" parent="@style/MaterialAlertDialog.MaterialComponents.Title.Panel">
+        <item name="android:background">@color/mayonaka_accent</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+    </style>
+
+    <style name="BaseDialog.Message.Text.Light" parent="@style/MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColorPrimary">@color/mayonaka_foreground</item>
+        <item name="android:textColorLink">@color/mayonaka_accent_light</item>
+    </style>
+
+    <style name="BaseDialog.Message.Text.Dark" parent="@style/MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColorPrimary">@color/mayonaka_foreground</item>
+        <item name="android:textColorLink">@color/mayonaka_accent_light</item>
+    </style>
+
+</resources>

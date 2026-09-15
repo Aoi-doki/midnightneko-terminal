@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ===== Mayonaka "midnight neko" palette ===== -->
+
+    <!-- Core tokens. -->
+    <color name="mayonaka_background">#FF0A0A0F</color>
+    <color name="mayonaka_surface">#FF1A1A24</color>
+    <color name="mayonaka_muted">#FF2A2A3A</color>
+    <color name="mayonaka_foreground">#FFE4E2F0</color>
+    <color name="mayonaka_accent">#FF8B5CF6</color>
+
+    <!-- Accent derivatives. -->
+    <color name="mayonaka_accent_dark">#FF6D28D9</color>
+    <color name="mayonaka_accent_light">#FFA78BFA</color>
+    <color name="mayonaka_accent_dim">#598B5CF6</color>
+
+    <!-- 35% alpha violet: the extra-keys chip stroke. -->
+    <color name="mayonaka_stroke">#598B5CF6</color>
+    <!-- Extra-keys chip fill. -->
+    <color name="mayonaka_key_fill">#FF12121A</color>
+    <!-- Pressed / active chip fill. -->
+    <color name="mayonaka_key_fill_active">#FF8B5CF6</color>
+    <!-- Divider between the toolbar and the terminal. -->
+    <color name="mayonaka_divider">#FF241E33</color>
+
+    <!-- Secondary text. -->
+    <color name="mayonaka_foreground_dim">#FF9A95B5</color>
+
+    <!-- Ripple / translucent overlays. -->
+    <color name="mayonaka_ripple">#408B5CF6</color>
+    <color name="mayonaka_scrim">#CC0A0A0F</color>
+
+</resources>

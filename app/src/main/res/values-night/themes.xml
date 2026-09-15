@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+     termux-shared ships a values-night variant of these themes painted in its red palette. Mayonaka
+     looks the same in day and night mode, so the night variants are collapsed back onto the
+     midnight themes defined in values/themes.xml.
+    -->
+
+    <style name="Theme.BaseActivity.DayNight.DarkActionBar" parent="Theme.BaseActivity.Light.DarkActionBar" />
+    <style name="Theme.BaseActivity.DayNight.NoActionBar" parent="Theme.BaseActivity.Light.NoActionBar" />
+    <style name="ThemeOverlay.BaseDialog.DayNight" parent="ThemeOverlay.BaseDialog.Light" />
+
+</resources>
