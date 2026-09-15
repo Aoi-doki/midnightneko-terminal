@@ -1,11 +1,17 @@
 name: release
 
-# Tag a commit and the APK that tag builds becomes a downloadable release.
+# Publishes the APK as a downloadable release.
 #
-#   git tag -a v1.0.0 -m "..." && git push origin v1.0.0
+# Two ways in:
 #
-# A tag carrying a semver pre-release suffix (v1.0.0-rc1) is published as a GitHub pre-release;
-# a plain version tag is published as a full release.
+#   1. Push a version tag:  git tag -a v1.0.0 -m "..." && git push origin v1.0.0
+#   2. Run this workflow manually with a version, and it creates the tag itself at the commit
+#      it runs on. Useful when whatever is driving the release cannot push tag refs -- a
+#      credential scoped to refs/heads/* gets a 403 on refs/tags/*, and `gh release create`
+#      creating the tag server-side sidesteps that entirely.
+#
+# A version carrying a semver pre-release suffix (v1.0.0-rc1) is published as a GitHub
+# pre-release; a plain version is published as a full release.
 
 on:
   push:
@@ -13,8 +19,10 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing tag to build and publish (e.g. v1.0.0)
+      version:
+        description: >
+          Version to publish, e.g. v1.0.0 or v1.0.0-rc1. The tag is created at the commit this
+          run checks out if it does not exist yet.
         required: true
 
 permissions:
@@ -33,14 +41,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
 
       - name: Work out the version
         id: version
         run: |
           set -euo pipefail
-          tag="${{ inputs.tag || github.ref_name }}"
+          tag="${{ inputs.version || github.ref_name }}"
+          [ "${tag#v}" = "$tag" ] && tag="v$tag"   # accept "1.0.0" as well as "v1.0.0"
           name="${tag#v}"
 
           # versionCode has to rise with every release or Android refuses to install one over
@@ -149,7 +157,10 @@ jobs:
             gh release upload "$tag" "${{ steps.build.outputs.apk }}" --clobber
             gh release edit "$tag" --notes-file /tmp/notes.md "${flags[@]}"
           else
+            # --target creates the tag at this commit when it does not already exist, which is
+            # what makes the manual path work without pushing a tag ref.
             gh release create "$tag" "${{ steps.build.outputs.apk }}" \
+              --target "$GITHUB_SHA" \
               --title "Mayonaka $tag" \
               --notes-file /tmp/notes.md \
               "${flags[@]}"
