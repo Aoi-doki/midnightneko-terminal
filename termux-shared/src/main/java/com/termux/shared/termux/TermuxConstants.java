@@ -470,6 +470,16 @@ public final class TermuxConstants {
     public static final String TERMUX_WIDGET_HOST_PACKAGE_NAME = TERMUX_PACKAGE_NAME;
 
 
+    /*
+     * Mayonaka.
+     */
+
+    /** The fork's GitHub repo. Crash reports and issues belong here, not on the Termux trackers. */
+    public static final String MAYONAKA_GITHUB_REPO_URL = "https://github.com/Aoi-doki/midnightneko-terminal"; // Default: "https://github.com/Aoi-doki/midnightneko-terminal"
+    /** The fork's GitHub issues url. */
+    public static final String MAYONAKA_GITHUB_ISSUES_REPO_URL = MAYONAKA_GITHUB_REPO_URL + "/issues"; // Default: "https://github.com/Aoi-doki/midnightneko-terminal/issues"
+
+
 
 
 
