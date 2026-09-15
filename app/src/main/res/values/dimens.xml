@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Extra keys chips. The stroke is 1dp of #8B5CF6 at 35% alpha (@color/mayonaka_stroke). -->
+    <dimen name="mayonaka_extra_key_stroke_width">1dp</dimen>
+    <dimen name="mayonaka_extra_key_corner_radius">8dp</dimen>
+    <dimen name="mayonaka_extra_key_spacing">3dp</dimen>
+
+    <!-- The hairline along the top of the extra keys row, so it reads as a bar. -->
+    <dimen name="mayonaka_extra_keys_divider_height">1dp</dimen>
+
+</resources>

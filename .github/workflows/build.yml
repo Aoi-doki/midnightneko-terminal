@@ -66,6 +66,12 @@ jobs:
           path: app/src/main/cpp/bootstrap-*.zip
           key: bootstrap-${{ hashFiles('app/build.gradle') }}
 
+      # The extra-keys layout and termux.properties editing are string handling against formats
+      # that fail quietly when they are wrong -- a bad layout just silently falls back, and a bad
+      # properties rewrite corrupts a file the user owns.
+      - name: Run the unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
       - name: Build the release APK
         run: ./gradlew :app:assembleRelease --stacktrace
 
@@ -115,5 +121,6 @@ jobs:
           name: build-reports
           path: |
             app/build/reports/**
+            app/build/test-results/**
             app/build/outputs/mapping/**
           if-no-files-found: ignore

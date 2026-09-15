@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="@string/mayonaka_settings_cat_appearance">
+
+        <Preference
+            app:key="mayonaka_color_scheme"
+            app:persistent="false"
+            app:title="@string/color_prompt" />
+
+        <Preference
+            app:key="mayonaka_font"
+            app:persistent="false"
+            app:title="@string/font_prompt" />
+
+        <SeekBarPreference
+            app:defaultValue="100"
+            app:key="mayonaka_terminal_opacity"
+            app:summary="@string/mayonaka_settings_opacity_summary"
+            app:title="@string/mayonaka_settings_opacity" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/mayonaka_settings_cat_keyboard">
+
+        <ListPreference
+            app:defaultValue="BORDERED"
+            app:entries="@array/mayonaka_keyboard_style_entries"
+            app:entryValues="@array/mayonaka_keyboard_style_values"
+            app:key="mayonaka_keyboard_style"
+            app:title="@string/mayonaka_settings_keyboard_style" />
+
+        <ListPreference
+            app:defaultValue="2"
+            app:entries="@array/mayonaka_extra_keys_rows_entries"
+            app:entryValues="@array/mayonaka_extra_keys_rows_values"
+            app:key="mayonaka_extra_keys_rows"
+            app:title="@string/mayonaka_settings_extra_keys_rows" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/mayonaka_settings_cat_terminal">
+
+        <ListPreference
+            app:defaultValue="bar"
+            app:entries="@array/mayonaka_cursor_style_entries"
+            app:entryValues="@array/mayonaka_cursor_style_values"
+            app:key="mayonaka_cursor_style"
+            app:title="@string/mayonaka_settings_cursor_style" />
+
+        <ListPreference
+            app:defaultValue="600"
+            app:entries="@array/mayonaka_cursor_blink_entries"
+            app:entryValues="@array/mayonaka_cursor_blink_values"
+            app:key="mayonaka_cursor_blink_rate"
+            app:title="@string/mayonaka_settings_cursor_blink" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/mayonaka_settings_cat_merged">
+
+        <Preference
+            app:key="mayonaka_widget_shortcuts"
+            app:persistent="false"
+            app:summary="@string/mayonaka_settings_widget_summary"
+            app:title="@string/mayonaka_widget_activity_title" />
+
+        <Preference
+            app:key="mayonaka_boot_scripts"
+            app:persistent="false"
+            app:summary="@string/mayonaka_settings_boot_summary"
+            app:title="@string/mayonaka_boot_activity_title" />
+
+        <Preference
+            app:key="mayonaka_device_api"
+            app:persistent="false"
+            app:summary="@string/mayonaka_settings_api_summary"
+            app:title="@string/mayonaka_api_activity_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/mayonaka_settings_cat_provisioning">
+
+        <Preference
+            app:key="mayonaka_rerun_provisioning"
+            app:persistent="false"
+            app:summary="@string/mayonaka_settings_rerun_provisioning_summary"
+            app:title="@string/mayonaka_settings_rerun_provisioning_title" />
+
+        <Preference
+            app:key="mayonaka_restore_defaults"
+            app:persistent="false"
+            app:summary="@string/mayonaka_settings_restore_defaults_summary"
+            app:title="@string/mayonaka_settings_restore_defaults_title" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

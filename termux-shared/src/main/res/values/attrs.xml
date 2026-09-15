@@ -4,4 +4,19 @@
     <attr name="extraKeysButtonActiveTextColor" format="reference" />
     <attr name="extraKeysButtonBackgroundColor" format="reference" />
     <attr name="extraKeysButtonActiveBackgroundColor" format="reference" />
+
+    <!--
+     Chip geometry for the extra keys buttons. With a zero stroke width and corner radius the
+     buttons render exactly as they always did: flat, edge to edge, no border. Giving them a
+     stroke, a radius and some spacing turns each key into a bordered chip.
+    -->
+    <attr name="extraKeysButtonStrokeColor" format="reference|color" />
+    <attr name="extraKeysButtonStrokeWidth" format="dimension" />
+    <attr name="extraKeysButtonCornerRadius" format="dimension" />
+    <attr name="extraKeysButtonSpacing" format="dimension" />
+
+    <!-- The row itself, so it can read as a bar rather than loose buttons. -->
+    <attr name="extraKeysBarBackgroundColor" format="reference|color" />
+    <attr name="extraKeysBarDividerColor" format="reference|color" />
+    <attr name="extraKeysBarDividerHeight" format="dimension" />
 </resources>

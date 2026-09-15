@@ -101,8 +101,6 @@
         <item name="colorPrimary">@color/mayonaka_accent</item>
         <item name="colorPrimaryVariant">@color/mayonaka_accent_dark</item>
 
-        <item name="android:windowBackground">@color/mayonaka_background</item>
-
         <!-- Avoid the action mode toolbar pushing down terminal content when selecting text. -->
         <item name="android:windowActionModeOverlay">true</item>
 
@@ -122,6 +120,35 @@
         <item name="extraKeysButtonActiveTextColor">@color/mayonaka_background</item>
         <item name="extraKeysButtonBackgroundColor">@color/mayonaka_key_fill</item>
         <item name="extraKeysButtonActiveBackgroundColor">@color/mayonaka_key_fill_active</item>
+        <item name="extraKeysButtonStrokeColor">@color/mayonaka_stroke</item>
+        <item name="extraKeysButtonStrokeWidth">@dimen/mayonaka_extra_key_stroke_width</item>
+        <item name="extraKeysButtonCornerRadius">@dimen/mayonaka_extra_key_corner_radius</item>
+        <item name="extraKeysButtonSpacing">@dimen/mayonaka_extra_key_spacing</item>
+        <item name="extraKeysBarBackgroundColor">@color/mayonaka_background</item>
+        <item name="extraKeysBarDividerColor">@color/mayonaka_divider</item>
+        <item name="extraKeysBarDividerHeight">@dimen/mayonaka_extra_keys_divider_height</item>
+
+        <!--
+         Translucent so the terminal opacity setting has something to reveal. At 100% opacity the
+         window background is painted fully opaque by updateBackgroundColor() and this changes
+         nothing.
+        -->
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
+
+    <!--
+     The flat keyboard style: the stock Termux look, no border, no radius, no gaps. Applied by
+     wrapping the activity theme, so switching styles is a theme swap rather than a pile of
+     runtime setters.
+    -->
+    <style name="Theme.TermuxActivity.DayNight.NoActionBar.FlatKeys" parent="Theme.TermuxActivity.DayNight.NoActionBar">
+        <item name="extraKeysButtonStrokeWidth">0dp</item>
+        <item name="extraKeysButtonCornerRadius">0dp</item>
+        <item name="extraKeysButtonSpacing">0dp</item>
+        <item name="extraKeysButtonBackgroundColor">@color/mayonaka_background</item>
+        <item name="extraKeysBarDividerHeight">0dp</item>
     </style>
 
 </resources>

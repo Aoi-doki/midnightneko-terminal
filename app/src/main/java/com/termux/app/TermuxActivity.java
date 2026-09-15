@@ -32,6 +32,7 @@ import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
 import com.termux.mayonaka.MayonakaDefaults;
+import com.termux.mayonaka.MayonakaPreferences;
 import com.termux.styling.TermuxStyleActivity;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.activity.ActivityUtils;
@@ -191,6 +192,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private static final int CONTEXT_MENU_SETTINGS_ID = 8;
     private static final int CONTEXT_MENU_REPORT_ID = 9;
 
+    /**
+     * Intent {@code boolean} extra asking the activity to type the provisioning command into the
+     * terminal once a session is up. Sent by Settings -> Mayonaka -> Re-run provisioning, which
+     * has nowhere to run a shell itself.
+     */
+    public static final String EXTRA_RUN_PROVISIONING = "com.termux.app.run_provisioning";
+
+    /** Set while an {@link #EXTRA_RUN_PROVISIONING} request is waiting for a session. */
+    private boolean mRunProvisioningWhenReady;
+
     private static final String ARG_TERMINAL_TOOLBAR_TEXT_INPUT = "terminal_toolbar_text_input";
     private static final String ARG_ACTIVITY_RECREATED = "activity_recreated";
 
@@ -225,6 +236,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mIsInvalidState = true;
             return;
         }
+
+        mRunProvisioningWhenReady = getIntent() != null
+            && getIntent().getBooleanExtra(EXTRA_RUN_PROVISIONING, false);
 
         setMargins();
 
@@ -279,6 +293,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Send the {@link TermuxConstants#BROADCAST_TERMUX_OPENED} broadcast to notify apps that Termux
         // app has been opened.
         TermuxUtils.sendTermuxOpenedBroadcast(this);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+
+        if (intent != null && intent.getBooleanExtra(EXTRA_RUN_PROVISIONING, false)) {
+            mRunProvisioningWhenReady = true;
+            maybeRunRequestedProvisioning();
+        }
     }
 
     @Override
@@ -422,6 +447,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     }
 
                     maybeOfferProvisioning();
+                    maybeRunRequestedProvisioning();
                 });
             } else {
                 // The service connected while not in foreground - just bail out.
@@ -467,6 +493,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
     private void setActivityTheme() {
+        // The extra keys chip geometry comes from theme attributes, so the "flat" keyboard style
+        // is a theme overlay rather than a pile of runtime setters. This has to happen before
+        // super.onCreate(), which is why it lives here.
+        if (MayonakaPreferences.getKeyboardStyle(this) == MayonakaPreferences.KeyboardStyle.FLAT)
+            setTheme(R.style.Theme_TermuxActivity_DayNight_NoActionBar_FlatKeys);
+
         // Update NightMode.APP_NIGHT_MODE
         TermuxThemeUtils.setAppNightMode(mProperties.getNightMode());
 
@@ -527,7 +559,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient);
 
         final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
-        if (mPreferences.shouldShowTerminalToolbar()) terminalToolbarViewPager.setVisibility(View.VISIBLE);
+        // "Hidden" in the Mayonaka keyboard style setting wins over the toolbar toggle.
+        if (mPreferences.shouldShowTerminalToolbar() && !isExtraKeysHidden())
+            terminalToolbarViewPager.setVisibility(View.VISIBLE);
 
         ViewGroup.LayoutParams layoutParams = terminalToolbarViewPager.getLayoutParams();
         mTerminalToolbarDefaultHeight = layoutParams.height;
@@ -553,9 +587,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         terminalToolbarViewPager.setLayoutParams(layoutParams);
     }
 
+    /** Whether the Mayonaka keyboard style setting is hiding the extra keys row outright. */
+    public boolean isExtraKeysHidden() {
+        return MayonakaPreferences.getKeyboardStyle(this) == MayonakaPreferences.KeyboardStyle.HIDDEN;
+    }
+
     public void toggleTerminalToolbar() {
         final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
         if (terminalToolbarViewPager == null) return;
+
+        if (isExtraKeysHidden()) {
+            Logger.showToast(this, getString(R.string.mayonaka_extra_keys_hidden_toast), true);
+            return;
+        }
 
         final boolean showNow = mPreferences.toogleShowTerminalToolbar();
         Logger.showToast(this, (showNow ? getString(R.string.msg_enabling_terminal_toolbar) : getString(R.string.msg_disabling_terminal_toolbar)), true);
@@ -942,6 +986,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         } catch (WindowManager.BadTokenException e) {
             // Activity finished - ignore.
         }
+    }
+
+    /**
+     * Honour an {@link #EXTRA_RUN_PROVISIONING} request once a session exists.
+     *
+     * <p>The request can arrive before the bootstrap has finished, in which case the flag is left
+     * set and this is called again from the installer callback.
+     */
+    private void maybeRunRequestedProvisioning() {
+        if (!mRunProvisioningWhenReady) return;
+        if (getCurrentSession() == null) return;
+
+        mRunProvisioningWhenReady = false;
+        runProvisioning();
     }
 
     /** Type the provisioning command into the current session, as if the user had. */

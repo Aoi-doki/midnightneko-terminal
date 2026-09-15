@@ -26,6 +26,7 @@ import com.termux.shared.termux.TermuxConstants;
 import com.termux.app.TermuxService;
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 import com.termux.shared.termux.terminal.io.BellHandler;
+import com.termux.mayonaka.MayonakaPreferences;
 import com.termux.shared.logger.Logger;
 import com.termux.terminal.TerminalColors;
 import com.termux.terminal.TerminalSession;
@@ -521,7 +522,12 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (!mActivity.isVisible()) return;
         TerminalSession session = mActivity.getCurrentSession();
         if (session != null && session.getEmulator() != null) {
-            mActivity.getWindow().getDecorView().setBackgroundColor(session.getEmulator().mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND]);
+            // The terminal's colour parser forces every colour to full alpha, so the Mayonaka
+            // opacity setting is applied here instead -- the window background is the surface the
+            // empty parts of the terminal are painted on.
+            int backgroundColor = session.getEmulator().mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND];
+            mActivity.getWindow().getDecorView().setBackgroundColor(
+                MayonakaPreferences.applyTerminalOpacity(mActivity, backgroundColor));
         }
     }
 

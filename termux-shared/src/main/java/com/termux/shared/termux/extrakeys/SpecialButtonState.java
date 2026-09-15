@@ -40,6 +40,8 @@ public class SpecialButtonState {
         isActive = value;
         for (MaterialButton button : buttons) {
             button.setTextColor(value ? mExtraKeysView.getButtonActiveTextColor() : mExtraKeysView.getButtonTextColor());
+            // A held CTRL should look held: fill the chip, not just recolour the caption.
+            mExtraKeysView.applyButtonBackground(button, value);
         }
     }
 

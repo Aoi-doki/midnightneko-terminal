@@ -1,6 +1,12 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <Preference
+        app:key="mayonaka"
+        app:title="@string/mayonaka_preferences_title"
+        app:summary="@string/mayonaka_preferences_summary"
+        app:fragment="com.termux.app.fragments.settings.MayonakaPreferencesFragment"/>
+
+    <Preference
         app:key="termux"
         app:title="@string/termux_preferences_title"
         app:summary="@string/termux_preferences_summary"

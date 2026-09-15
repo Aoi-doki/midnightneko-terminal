@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ===== Mayonaka settings ===== -->
+
+    <string-array name="mayonaka_keyboard_style_entries">
+        <item>Bordered chips</item>
+        <item>Flat (stock Termux)</item>
+        <item>Hidden</item>
+    </string-array>
+    <!-- Must match com.termux.mayonaka.MayonakaPreferences.KeyboardStyle. -->
+    <string-array name="mayonaka_keyboard_style_values">
+        <item>BORDERED</item>
+        <item>FLAT</item>
+        <item>HIDDEN</item>
+    </string-array>
+
+    <string-array name="mayonaka_extra_keys_rows_entries">
+        <item>1 row — navigation</item>
+        <item>2 rows — navigation + modifiers</item>
+        <item>3 rows — with the symbol row</item>
+    </string-array>
+    <!-- Indexes into com.termux.mayonaka.MayonakaProperties.EXTRA_KEYS_ROWS. -->
+    <string-array name="mayonaka_extra_keys_rows_values">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+    <string-array name="mayonaka_cursor_style_entries">
+        <item>Bar</item>
+        <item>Block</item>
+        <item>Underline</item>
+    </string-array>
+    <!-- termux.properties terminal-cursor-style values. -->
+    <string-array name="mayonaka_cursor_style_values">
+        <item>bar</item>
+        <item>block</item>
+        <item>underline</item>
+    </string-array>
+
+    <string-array name="mayonaka_cursor_blink_entries">
+        <item>Off</item>
+        <item>Slow</item>
+        <item>Normal</item>
+        <item>Fast</item>
+    </string-array>
+    <!-- termux.properties terminal-cursor-blink-rate, in milliseconds; 0 disables blinking. -->
+    <string-array name="mayonaka_cursor_blink_values">
+        <item>0</item>
+        <item>900</item>
+        <item>600</item>
+        <item>350</item>
+    </string-array>
+
+</resources>

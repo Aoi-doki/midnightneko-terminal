@@ -2,6 +2,10 @@ package com.termux.shared.termux.extrakeys;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.TypedArray;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -128,6 +132,35 @@ public final class ExtraKeysView extends GridLayout {
     public static final int DEFAULT_BUTTON_ACTIVE_BACKGROUND_COLOR = 0xFF7F7F7F;
 
 
+    /** Defines the default value for {@link #mButtonStrokeColor} defined by current theme. */
+    public static final int ATTR_BUTTON_STROKE_COLOR = R.attr.extraKeysButtonStrokeColor;
+    /** Defines the default value for {@link #mButtonStrokeWidth} defined by current theme. */
+    public static final int ATTR_BUTTON_STROKE_WIDTH = R.attr.extraKeysButtonStrokeWidth;
+    /** Defines the default value for {@link #mButtonCornerRadius} defined by current theme. */
+    public static final int ATTR_BUTTON_CORNER_RADIUS = R.attr.extraKeysButtonCornerRadius;
+    /** Defines the default value for {@link #mButtonSpacing} defined by current theme. */
+    public static final int ATTR_BUTTON_SPACING = R.attr.extraKeysButtonSpacing;
+
+    /** Defines the default value for the row background defined by current theme. */
+    public static final int ATTR_BAR_BACKGROUND_COLOR = R.attr.extraKeysBarBackgroundColor;
+    /** Defines the default value for {@link #mBarDividerColor} defined by current theme. */
+    public static final int ATTR_BAR_DIVIDER_COLOR = R.attr.extraKeysBarDividerColor;
+    /** Defines the default value for {@link #mBarDividerHeight} defined by current theme. */
+    public static final int ATTR_BAR_DIVIDER_HEIGHT = R.attr.extraKeysBarDividerHeight;
+
+    /**
+     * Fallbacks for the chip geometry. All zero, which reproduces the original look exactly:
+     * square, borderless, edge-to-edge buttons on a transparent row. A theme that wants bordered
+     * chips supplies the four button attrs above.
+     */
+    public static final int DEFAULT_BUTTON_STROKE_COLOR = 0x00000000;
+    public static final int DEFAULT_BUTTON_STROKE_WIDTH = 0;
+    public static final int DEFAULT_BUTTON_CORNER_RADIUS = 0;
+    public static final int DEFAULT_BUTTON_SPACING = 0;
+    public static final int DEFAULT_BAR_DIVIDER_COLOR = 0x00000000;
+    public static final int DEFAULT_BAR_DIVIDER_HEIGHT = 0;
+
+
 
     /** Defines the minimum allowed duration in milliseconds for {@link #mLongPressTimeout}. */
     public static final int MIN_LONG_PRESS_DURATION = 200;
@@ -177,6 +210,23 @@ public final class ExtraKeysView extends GridLayout {
      * {@link #DEFAULT_BUTTON_ACTIVE_BACKGROUND_COLOR}. */
     protected int mButtonActiveBackgroundColor;
 
+    /** The stroke colour of the extra keys button chip. */
+    protected int mButtonStrokeColor;
+    /** The stroke width in pixels of the extra keys button chip. Zero means no border. */
+    protected int mButtonStrokeWidth;
+    /** The corner radius in pixels of the extra keys button chip. */
+    protected int mButtonCornerRadius;
+    /** The gap in pixels left around each extra keys button. */
+    protected int mButtonSpacing;
+
+    /** The colour of the divider drawn along the top edge of the row. */
+    protected int mBarDividerColor;
+    /** The height in pixels of the divider drawn along the top edge of the row. */
+    protected int mBarDividerHeight;
+
+    /** Paint for {@link #mBarDividerColor}, allocated once rather than per draw. */
+    private final Paint mBarDividerPaint = new Paint();
+
     /** Defines whether text for the extra keys button should be all capitalized automatically. */
     protected boolean mButtonTextAllCaps = true;
 
@@ -221,8 +271,99 @@ public final class ExtraKeysView extends GridLayout {
             ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_BACKGROUND_COLOR, DEFAULT_BUTTON_BACKGROUND_COLOR),
             ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_ACTIVE_BACKGROUND_COLOR, DEFAULT_BUTTON_ACTIVE_BACKGROUND_COLOR));
 
+        setButtonChipStyle(
+            ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_STROKE_COLOR, DEFAULT_BUTTON_STROKE_COLOR),
+            getAttrDimensionPixelSize(context, ATTR_BUTTON_STROKE_WIDTH, DEFAULT_BUTTON_STROKE_WIDTH),
+            getAttrDimensionPixelSize(context, ATTR_BUTTON_CORNER_RADIUS, DEFAULT_BUTTON_CORNER_RADIUS),
+            getAttrDimensionPixelSize(context, ATTR_BUTTON_SPACING, DEFAULT_BUTTON_SPACING));
+
+        setBarStyle(
+            ThemeUtils.getSystemAttrColor(context, ATTR_BAR_BACKGROUND_COLOR, 0),
+            ThemeUtils.getSystemAttrColor(context, ATTR_BAR_DIVIDER_COLOR, DEFAULT_BAR_DIVIDER_COLOR),
+            getAttrDimensionPixelSize(context, ATTR_BAR_DIVIDER_HEIGHT, DEFAULT_BAR_DIVIDER_HEIGHT));
+
         setLongPressTimeout(ViewConfiguration.getLongPressTimeout());
         setLongPressRepeatDelay(DEFAULT_LONG_PRESS_REPEAT_DELAY);
+    }
+
+    /** Read a dimension theme attribute in pixels, falling back to {@code def} if it is undefined. */
+    private static int getAttrDimensionPixelSize(Context context, int attr, int def) {
+        TypedArray typedArray = context.getTheme().obtainStyledAttributes(new int[] { attr });
+        int value = typedArray.getDimensionPixelSize(0, def);
+        typedArray.recycle();
+        return value;
+    }
+
+
+    /**
+     * Set the chip geometry shared by every extra keys button.
+     *
+     * <p>With a zero stroke width, corner radius and spacing the buttons are drawn the way they
+     * always were: flat rectangles of {@link #mButtonBackgroundColor} filling the grid cell. Any
+     * non-zero value switches to a rounded, optionally stroked chip inset by {@code spacing}.
+     *
+     * @param strokeColor The value for {@link #mButtonStrokeColor}.
+     * @param strokeWidth The value for {@link #mButtonStrokeWidth}, in pixels.
+     * @param cornerRadius The value for {@link #mButtonCornerRadius}, in pixels.
+     * @param spacing The value for {@link #mButtonSpacing}, in pixels.
+     */
+    public void setButtonChipStyle(int strokeColor, int strokeWidth, int cornerRadius, int spacing) {
+        mButtonStrokeColor = strokeColor;
+        mButtonStrokeWidth = strokeWidth;
+        mButtonCornerRadius = cornerRadius;
+        mButtonSpacing = spacing;
+    }
+
+    /**
+     * Set how the row itself is painted: a background colour behind all the keys, and a divider
+     * along its top edge so the row reads as a bar rather than as loose buttons.
+     *
+     * @param backgroundColor The row background, or {@code 0} to leave it transparent.
+     * @param dividerColor The value for {@link #mBarDividerColor}.
+     * @param dividerHeight The value for {@link #mBarDividerHeight}, in pixels.
+     */
+    public void setBarStyle(int backgroundColor, int dividerColor, int dividerHeight) {
+        if (backgroundColor != 0) setBackgroundColor(backgroundColor);
+
+        mBarDividerColor = dividerColor;
+        mBarDividerHeight = dividerHeight;
+        mBarDividerPaint.setColor(dividerColor);
+        // A divider has to be drawn after the children, which GridLayout will not do on its own.
+        setWillNotDraw(false);
+    }
+
+    @Override
+    protected void dispatchDraw(@NonNull Canvas canvas) {
+        super.dispatchDraw(canvas);
+        if (mBarDividerHeight > 0 && (mBarDividerColor >>> 24) != 0)
+            canvas.drawRect(0, 0, getWidth(), mBarDividerHeight, mBarDividerPaint);
+    }
+
+
+    /**
+     * Paint {@code view} as an extra keys chip in either its resting or its active colours.
+     *
+     * <p>This replaces the plain {@code setBackgroundColor} the view used to do on every touch
+     * event. A flat colour would throw away the rounded corners and the border, and on a
+     * {@link MaterialButton} it does not even reach the visible background -- the button manages
+     * its own -- so the background is set explicitly as a drawable instead.
+     */
+    public void applyButtonBackground(@NonNull View view, boolean active) {
+        int fill = active ? mButtonActiveBackgroundColor : mButtonBackgroundColor;
+
+        if (mButtonStrokeWidth <= 0 && mButtonCornerRadius <= 0) {
+            // Original look: a flat rectangle.
+            view.setBackgroundColor(fill);
+            return;
+        }
+
+        GradientDrawable chip = new GradientDrawable();
+        chip.setShape(GradientDrawable.RECTANGLE);
+        chip.setCornerRadius(mButtonCornerRadius);
+        chip.setColor(fill);
+        if (mButtonStrokeWidth > 0)
+            chip.setStroke(mButtonStrokeWidth, active ? mButtonActiveBackgroundColor : mButtonStrokeColor);
+        view.setBackground(chip);
     }
 
 
@@ -413,6 +554,12 @@ public final class ExtraKeysView extends GridLayout {
                 button.setTextColor(mButtonTextColor);
                 button.setAllCaps(mButtonTextAllCaps);
                 button.setPadding(0, 0, 0, 0);
+                // MaterialButton reserves 6dp of vertical inset by default, which would shrink
+                // the chip away from the cell it is supposed to fill.
+                button.setInsetTop(0);
+                button.setInsetBottom(0);
+                applyButtonBackground(button, isSpecialButton(buttonInfo)
+                    && Boolean.TRUE.equals(readSpecialButton(SpecialButton.valueOf(buttonInfo.getKey()), false)));
 
                 button.setOnClickListener(view -> {
                     performExtraKeyButtonHapticFeedback(view, buttonInfo, button);
@@ -422,7 +569,7 @@ public final class ExtraKeysView extends GridLayout {
                 button.setOnTouchListener((view, event) -> {
                     switch (event.getAction()) {
                         case MotionEvent.ACTION_DOWN:
-                            view.setBackgroundColor(mButtonActiveBackgroundColor);
+                            applyButtonBackground(view, true);
                             // Start long press scheduled executors which will be stopped in next MotionEvent
                             startScheduledExecutors(view, buttonInfo, button);
                             return true;
@@ -432,23 +579,23 @@ public final class ExtraKeysView extends GridLayout {
                                 // Show popup on swipe up
                                 if (mPopupWindow == null && event.getY() < 0) {
                                     stopScheduledExecutors();
-                                    view.setBackgroundColor(mButtonBackgroundColor);
+                                    applyButtonBackground(view, false);
                                     showPopup(view, buttonInfo.getPopup());
                                 }
                                 if (mPopupWindow != null && event.getY() > 0) {
-                                    view.setBackgroundColor(mButtonActiveBackgroundColor);
+                                    applyButtonBackground(view, true);
                                     dismissPopup();
                                 }
                             }
                             return true;
 
                         case MotionEvent.ACTION_CANCEL:
-                            view.setBackgroundColor(mButtonBackgroundColor);
+                            applyButtonBackground(view, false);
                             stopScheduledExecutors();
                             return true;
 
                         case MotionEvent.ACTION_UP:
-                            view.setBackgroundColor(mButtonBackgroundColor);
+                            applyButtonBackground(view, false);
                             stopScheduledExecutors();
                             // If ACTION_UP up was not from a repetitive key or was with a key with a popup button
                             if (mLongPressCount == 0 || mPopupWindow != null) {
@@ -476,7 +623,7 @@ public final class ExtraKeysView extends GridLayout {
                 } else {
                     param.height = 0;
                 }
-                param.setMargins(0, 0, 0, 0);
+                param.setMargins(mButtonSpacing, mButtonSpacing, mButtonSpacing, mButtonSpacing);
                 param.columnSpec = GridLayout.spec(col, GridLayout.FILL, 1.f);
                 param.rowSpec = GridLayout.spec(row, GridLayout.FILL, 1.f);
                 button.setLayoutParams(param);
@@ -606,7 +753,7 @@ public final class ExtraKeysView extends GridLayout {
         button.setMinimumHeight(0);
         button.setWidth(width);
         button.setHeight(height);
-        button.setBackgroundColor(mButtonActiveBackgroundColor);
+        applyButtonBackground(button, true);
         mPopupWindow = new PopupWindow(this);
         mPopupWindow.setWidth(LayoutParams.WRAP_CONTENT);
         mPopupWindow.setHeight(LayoutParams.WRAP_CONTENT);

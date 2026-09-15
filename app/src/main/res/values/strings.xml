@@ -76,6 +76,49 @@
     <string name="share_file_chooser_title">Share with</string>
     <string name="keep_alive_service">Keeps Mayonaka running in the background so termux-* commands start quickly.</string>
 
+    <!-- ===== Mayonaka settings ===== -->
+
+    <string name="mayonaka_preferences_title">&TERMUX_APP_NAME;</string>
+    <string name="mayonaka_preferences_summary">Theme, keyboard, terminal and provisioning</string>
+
+    <string name="mayonaka_settings_cat_appearance">Appearance</string>
+    <string name="mayonaka_settings_cat_keyboard">Keyboard</string>
+    <string name="mayonaka_settings_cat_terminal">Terminal</string>
+    <string name="mayonaka_settings_cat_merged">Merged add-ons</string>
+    <string name="mayonaka_settings_cat_provisioning">Provisioning</string>
+
+    <string name="mayonaka_settings_opacity">Terminal opacity</string>
+    <string name="mayonaka_settings_opacity_summary">Below 100%% the wallpaper shows through behind the text.</string>
+
+    <string name="mayonaka_settings_keyboard_style">Keyboard style</string>
+    <string name="mayonaka_settings_extra_keys_rows">Extra keys rows</string>
+    <string name="mayonaka_settings_extra_keys_custom">Custom layout in ~/.termux/termux.properties — pick a row count to replace it</string>
+
+    <string name="mayonaka_settings_cursor_style">Cursor style</string>
+    <string name="mayonaka_settings_cursor_blink">Cursor blink</string>
+
+    <string name="mayonaka_settings_widget_summary">Home-screen widget and launcher shortcuts from ~/.shortcuts</string>
+    <string name="mayonaka_settings_boot_summary">Scripts run from ~/.termux/boot at startup</string>
+    <string name="mayonaka_settings_api_summary">Background permissions the termux-* commands need</string>
+
+    <string name="mayonaka_settings_rerun_provisioning_title">Re-run provisioning</string>
+    <string name="mayonaka_settings_rerun_provisioning_summary">Run ~/setup.sh again. Idempotent; your edited configs are left alone.</string>
+    <string name="mayonaka_settings_rerun_provisioning_confirm">This opens a terminal session and runs <tt>bash ~/setup.sh</tt>.
+        \n\nIt needs a network connection, takes a few minutes, and never overwrites a config
+        file you have edited yourself.</string>
+
+    <string name="mayonaka_settings_restore_defaults_title">Restore baked-in defaults</string>
+    <string name="mayonaka_settings_restore_defaults_summary">Rewrite ~/.termux colours, font and termux.properties from the APK</string>
+    <string name="mayonaka_settings_restore_defaults_confirm">This overwrites ~/.termux/colors.properties,
+        ~/.termux/font.ttf, ~/.termux/termux.properties and ~/setup.sh with the versions shipped
+        inside the app.
+        \n\nAny changes you made to those four files are lost. Nothing else in $HOME is touched.</string>
+    <string name="mayonaka_settings_restore">Overwrite</string>
+    <string name="mayonaka_settings_restored">Defaults restored</string>
+
+    <string name="mayonaka_settings_write_failed">Could not write ~/.termux/termux.properties</string>
+    <string name="mayonaka_extra_keys_hidden_toast">Extra keys are hidden in Settings &#8594; &TERMUX_APP_NAME; &#8594; Keyboard style</string>
+
 
     <!-- ===== Merged from termux-widget ===== -->
 

@@ -184,9 +184,48 @@ TAB   CTRL   ALT   LEFT   DOWN   RIGHT   PGDN   BKSP
 
 A third symbol row (`- _ = + { } [ ] ; ' " ` ~ < >`) can be toggled on in settings.
 
-**Settings → Mayonaka** has: colour scheme picker (every merged scheme), font picker (every
-merged font), keyboard style (bordered / flat / hidden), extra-keys row count, cursor style and
-blink, terminal opacity, and a re-run provisioning button.
+The chip geometry is theme attributes, not hardcoded values, so "flat" is a theme overlay rather
+than a pile of runtime setters:
+
+| Attribute | Bordered | Flat |
+|---|---|---|
+| `extraKeysButtonStrokeColor` | `#8B5CF6` @ 35% | — |
+| `extraKeysButtonStrokeWidth` | 1dp | 0dp |
+| `extraKeysButtonCornerRadius` | 8dp | 0dp |
+| `extraKeysButtonSpacing` | 3dp | 0dp |
+| `extraKeysBarDividerHeight` | 1dp | 0dp |
+
+At zero across the board `ExtraKeysView` renders exactly as upstream does, so nothing about the
+original look is lost — it is one of the three options.
+
+## Settings
+
+**Settings → Mayonaka**:
+
+| | |
+|---|---|
+| Colour scheme | opens the picker with every merged scheme |
+| Font | opens the picker with every merged font |
+| Terminal opacity | 20–100%; below 100 the wallpaper shows through |
+| Keyboard style | bordered / flat / hidden |
+| Extra keys rows | 1 / 2 / 3 (the symbol row) |
+| Cursor style | bar / block / underline |
+| Cursor blink | off / slow / normal / fast |
+| Widget & shortcuts | the merged Termux:Widget screen |
+| Boot scripts | the merged Termux:Boot screen |
+| Device API | the merged Termux:API screen |
+| Re-run provisioning | runs `~/setup.sh` in a session |
+| Restore baked-in defaults | rewrites the four shipped files |
+
+Settings that Termux already has a property for — the extra keys layout, the cursor — are written
+into `~/.termux/termux.properties` rather than mirrored into app preferences, so changing one in
+Settings and changing it in an editor mean the same thing. The rewrite is a line edit: comments,
+ordering and keys Mayonaka knows nothing about are passed through untouched, and a value that
+spans continuation lines is replaced whole. If you have hand-written an extra-keys layout that is
+not one of the three presets, Settings says so rather than relabelling it.
+
+The two things Termux has no property for — how the keys are *drawn*, and the terminal opacity —
+are app preferences.
 
 ---
 
