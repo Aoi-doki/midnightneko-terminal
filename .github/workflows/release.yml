@@ -1,0 +1,168 @@
+name: release
+
+# Tag a commit and the APK that tag builds becomes a downloadable release.
+#
+#   git tag -a v1.0.0 -m "..." && git push origin v1.0.0
+#
+# A tag carrying a semver pre-release suffix (v1.0.0-rc1) is published as a GitHub pre-release;
+# a plain version tag is published as a full release.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and publish (e.g. v1.0.0)
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish the APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Work out the version
+        id: version
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          name="${tag#v}"
+
+          # versionCode has to rise with every release or Android refuses to install one over
+          # the last. Derive it from the version so it is monotonic without anyone remembering
+          # to bump it: major * 10000 + minor * 100 + patch.
+          core="${name%%-*}"
+          major="$(echo "$core" | cut -d. -f1)"
+          minor="$(echo "$core" | cut -d. -f2)"
+          patch="$(echo "$core" | cut -d. -f3)"
+          if ! [[ "$major$minor$patch" =~ ^[0-9]+$ ]]; then
+            echo "tag '$tag' is not vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          code=$(( major * 10000 + minor * 100 + patch ))
+
+          # A semver pre-release suffix means a pre-release on GitHub too.
+          if [ "$name" != "$core" ]; then prerelease=true; else prerelease=false; fi
+
+          echo "tag=$tag"                 >> "$GITHUB_OUTPUT"
+          echo "name=$name"               >> "$GITHUB_OUTPUT"
+          echo "code=$code"               >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease"   >> "$GITHUB_OUTPUT"
+          echo "Publishing $tag as versionName=$name versionCode=$code prerelease=$prerelease"
+
+      - name: Build and verify the APK
+        id: build
+        uses: ./.github/actions/build-apk
+        with:
+          version-name: ${{ steps.version.outputs.name }}
+          version-code: ${{ steps.version.outputs.code }}
+
+      - name: Write the release notes
+        id: notes
+        run: |
+          cat > /tmp/notes.md <<'HEADER'
+          Single-APK Termux fork for an unrooted arm64 Galaxy S25 Ultra: termux-app with
+          Termux:API, Termux:Widget, Termux:Styling and Termux:Boot merged in, themed midnight
+          neko, shipping pre-configured.
+
+          ## Before you install
+
+          > [!WARNING]
+          > This **replaces official Termux**. The `applicationId` has to stay `com.termux`
+          > (every Termux package has `/data/data/com.termux/files/usr` compiled into it), but
+          > the signature differs from F-Droid's — so Android will not upgrade across it, and
+          > **uninstalling Termux deletes `$HOME` and `$PREFIX`**.
+          >
+          > Back up first. [MIGRATE.md](../../blob/HEAD/MIGRATE.md) has the exact commands.
+
+          The F-Droid Termux:API / Widget / Boot / Styling APKs will stop working alongside this
+          and should be uninstalled — all four are merged in here.
+
+          ## Install
+
+          ```sh
+          adb install -r mayonaka_*.apk
+          ```
+
+          HEADER
+
+          {
+            echo "## This build"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Version | \`${{ steps.version.outputs.name }}\` (versionCode ${{ steps.version.outputs.code }}) |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| ABI | arm64-v8a only |"
+            echo "| minSdk / targetSdk | 21 / 28 |"
+            echo "| Size | ${{ steps.build.outputs.size }} |"
+            echo "| APK SHA-256 | \`${{ steps.build.outputs.sha256 }}\` |"
+            echo "| Signing certificate SHA-256 | \`${{ steps.build.outputs.certificate }}\` |"
+            echo
+            echo "The certificate fingerprint is the thing to check across releases: as long as it"
+            echo "does not change, each build installs over the last one and keeps \`\$HOME\`."
+            echo
+            echo "## Verified in this build"
+            echo
+            echo "- unit tests pass"
+            echo "- release APK builds and passes R8"
+            echo "- signing certificate matches the committed keystore"
+            echo "- every class the merged manifest names is in the dex, and every resource"
+            echo "  reference resolves"
+            echo "- the termux-api component is still exactly 33 bytes, so the in-place binary"
+            echo "  patch works"
+            echo "- exactly one launcher entry, no duplicate resource names"
+            echo
+            echo "Not verified: this has not been run on a physical device. See"
+            echo "[\"Not yet run on a phone\"](../../blob/HEAD/README.md#not-yet-run-on-a-phone)."
+          } >> /tmp/notes.md
+
+          cat /tmp/notes.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+          flags=()
+          [ "${{ steps.version.outputs.prerelease }}" = "true" ] && flags+=(--prerelease)
+
+          # Re-running a release for the same tag replaces its assets rather than failing.
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag already exists, updating it"
+            gh release upload "$tag" "${{ steps.build.outputs.apk }}" --clobber
+            gh release edit "$tag" --notes-file /tmp/notes.md "${flags[@]}"
+          else
+            gh release create "$tag" "${{ steps.build.outputs.apk }}" \
+              --title "Mayonaka $tag" \
+              --notes-file /tmp/notes.md \
+              "${flags[@]}"
+          fi
+
+          gh release view "$tag"
+
+      - name: Upload the reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build-reports
+          path: |
+            app/build/reports/**
+            app/build/test-results/**
+          if-no-files-found: ignore

@@ -1,0 +1,143 @@
+name: Build and verify the Mayonaka APK
+description: >
+  Sets up the toolchain, runs the unit tests, builds the signed arm64-v8a release APK and
+  verifies it. Shared by the push build and the release workflow so the artifact a release
+  ships is produced by exactly the same steps CI has been running all along.
+
+inputs:
+  version-name:
+    description: >
+      versionName to stamp into the APK. Defaults to whatever app/build.gradle says.
+    required: false
+    default: ""
+  version-code:
+    description: >
+      versionCode to stamp into the APK. Defaults to whatever app/build.gradle says. A release
+      must raise this or Android will refuse to install it over the previous one.
+    required: false
+    default: ""
+
+outputs:
+  apk:
+    description: Path to the built APK.
+    value: ${{ steps.build.outputs.apk }}
+  sha256:
+    description: SHA-256 of the built APK.
+    value: ${{ steps.build.outputs.sha256 }}
+  size:
+    description: Human-readable size of the built APK.
+    value: ${{ steps.build.outputs.size }}
+  certificate:
+    description: SHA-256 fingerprint of the signing certificate.
+    value: ${{ steps.verify-signature.outputs.certificate }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "21"
+
+    - name: Set up the Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        packages: ""
+
+    - name: Read the NDK version from gradle.properties
+      id: ndk
+      shell: bash
+      run: |
+        version="$(sed -n 's/^ndkVersion=//p' gradle.properties)"
+        if [ -z "$version" ]; then
+          echo "ndkVersion is not set in gradle.properties" >&2
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - name: Install the SDK and NDK packages
+      shell: bash
+      run: |
+        sdkmanager --install \
+          "platform-tools" \
+          "platforms;android-$(sed -n 's/^compileSdkVersion=//p' gradle.properties)" \
+          "build-tools;36.0.0" \
+          "ndk;${{ steps.ndk.outputs.version }}"
+
+    - name: Cache the Gradle caches
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle', 'gradle/wrapper/gradle-wrapper.properties') }}
+        restore-keys: gradle-${{ runner.os }}-
+
+    # The bootstrap zip is a ~100 MB download from termux-packages; caching it keeps repeat
+    # builds off the network. The key includes the build file that pins its checksum.
+    - name: Cache the bootstrap archive
+      uses: actions/cache@v4
+      with:
+        path: app/src/main/cpp/bootstrap-*.zip
+        key: bootstrap-${{ hashFiles('app/build.gradle') }}
+
+    # The extra-keys layout and termux.properties editing are string handling against formats
+    # that fail quietly when they are wrong -- a bad layout just silently falls back, and a bad
+    # properties rewrite corrupts a file the user owns.
+    - name: Run the unit tests
+      shell: bash
+      run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+    - name: Build the release APK
+      id: build
+      shell: bash
+      env:
+        MAYONAKA_VERSION_NAME: ${{ inputs.version-name }}
+        MAYONAKA_VERSION_CODE: ${{ inputs.version-code }}
+      run: |
+        set -euo pipefail
+        ./gradlew :app:assembleRelease --stacktrace
+
+        apk="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"
+        [ -n "$apk" ] || { echo "no APK produced" >&2; exit 1; }
+
+        echo "apk=$apk" >> "$GITHUB_OUTPUT"
+        echo "sha256=$(sha256sum "$apk" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+        echo "size=$(du -h "$apk" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+    # Mayonaka is signed with the keystore committed at the repo root, so that every build --
+    # local or CI -- installs over the top of the last one instead of forcing an uninstall
+    # (which would take $HOME with it). Fail loudly if that ever stops being true.
+    - name: Verify the signature
+      id: verify-signature
+      shell: bash
+      run: |
+        set -euo pipefail
+        apk="${{ steps.build.outputs.apk }}"
+        build_tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+        "$build_tools/apksigner" verify --print-certs "$apk" | tee /tmp/certs.txt
+
+        expected="$(keytool -list -v -keystore mayonaka.jks -storepass midnightneko \
+          | sed -n 's/.*SHA256: //p' | head -1 | tr -d ': ' | tr 'A-F' 'a-f')"
+        actual="$(sed -n 's/.*SHA-256 digest: //p' /tmp/certs.txt | head -1 | tr -d ': ' | tr 'A-F' 'a-f')"
+        echo "expected=$expected"
+        echo "actual=  $actual"
+        test "$expected" = "$actual"
+
+        echo "certificate=$actual" >> "$GITHUB_OUTPUT"
+
+    # Folding four apps into one is mostly a manifest exercise, and the manifest merger does
+    # not check that the classes and resources it references actually exist. This does, plus
+    # the things specific to this merge: the termux-api component string staying 33 bytes, one
+    # launcher entry, no duplicate resource names.
+    - name: Verify the merged manifest
+      shell: bash
+      run: python3 tools/verify_merge.py "${{ steps.build.outputs.apk }}"
+
+    - name: Report the APK contents
+      shell: bash
+      run: |
+        apk="${{ steps.build.outputs.apk }}"
+        ls -la "$apk"
+        unzip -l "$apk" | grep -E 'lib/|\.dex' || true

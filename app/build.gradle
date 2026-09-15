@@ -26,6 +26,7 @@ android {
     compileSdkVersion project.properties.compileSdkVersion.toInteger()
     ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
     def appVersionName = System.getenv("MAYONAKA_VERSION_NAME") ?: ""
+    def appVersionCode = System.getenv("MAYONAKA_VERSION_CODE") ?: ""
     def apkVersionTag = System.getenv("MAYONAKA_APK_VERSION_TAG") ?: ""
 
     dependencies {
@@ -68,7 +69,11 @@ android {
         versionCode 1000
         versionName "1.0.0"
 
+        // The release workflow derives both from the git tag, so a tagged build always carries
+        // the version it claims -- and a rising versionCode, without which Android refuses to
+        // install a new release over the previous one.
         if (appVersionName) versionName = appVersionName
+        if (appVersionCode) versionCode = appVersionCode.toInteger()
         validateVersionName(versionName)
 
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class

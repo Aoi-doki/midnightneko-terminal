@@ -20,98 +20,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set up the Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: ""
-
-      - name: Read the NDK version from gradle.properties
-        id: ndk
-        run: |
-          version="$(sed -n 's/^ndkVersion=//p' gradle.properties)"
-          if [ -z "$version" ]; then
-            echo "ndkVersion is not set in gradle.properties" >&2
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Install the SDK and NDK packages
-        run: |
-          sdkmanager --install \
-            "platform-tools" \
-            "platforms;android-$(sed -n 's/^compileSdkVersion=//p' gradle.properties)" \
-            "build-tools;36.0.0" \
-            "ndk;${{ steps.ndk.outputs.version }}"
-
-      - name: Cache the Gradle caches
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle', 'gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: gradle-${{ runner.os }}-
-
-      # The bootstrap zip is a ~100 MB download from termux-packages; caching it keeps repeat
-      # builds off the network. The key includes the build file that pins its checksum.
-      - name: Cache the bootstrap archive
-        uses: actions/cache@v4
-        with:
-          path: app/src/main/cpp/bootstrap-*.zip
-          key: bootstrap-${{ hashFiles('app/build.gradle') }}
-
-      # The extra-keys layout and termux.properties editing are string handling against formats
-      # that fail quietly when they are wrong -- a bad layout just silently falls back, and a bad
-      # properties rewrite corrupts a file the user owns.
-      - name: Run the unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
-
-      - name: Build the release APK
-        run: ./gradlew :app:assembleRelease --stacktrace
-
-      # Mayonaka is signed with the keystore committed at the repo root, so that every build --
-      # local or CI -- installs over the top of the last one instead of forcing an uninstall
-      # (which would take $HOME with it). Fail loudly if that ever stops being true.
-      - name: Verify the signature
-        run: |
-          set -euo pipefail
-          apk="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"
-          echo "APK: $apk"
-          build_tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          "$build_tools/apksigner" verify --print-certs "$apk" | tee /tmp/certs.txt
-          expected="$(keytool -list -v -keystore mayonaka.jks -storepass midnightneko \
-            | sed -n 's/.*SHA256: //p' | head -1 | tr -d ': ' | tr 'A-F' 'a-f')"
-          actual="$(sed -n 's/.*SHA-256 digest: //p' /tmp/certs.txt | head -1 | tr -d ': ' | tr 'A-F' 'a-f')"
-          echo "expected=$expected"
-          echo "actual=  $actual"
-          test "$expected" = "$actual"
-
-      # Folding four apps into one is mostly a manifest exercise, and the manifest merger does
-      # not check that the classes and resources it references actually exist. This does, plus
-      # the things specific to this merge: the termux-api component string staying 33 bytes, one
-      # launcher entry, no duplicate resource names.
-      - name: Verify the merged manifest
-        run: |
-          apk="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"
-          python3 tools/verify_merge.py "$apk"
-
-      - name: Report the APK contents
-        run: |
-          apk="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"
-          ls -la "$apk"
-          unzip -l "$apk" | grep -E 'lib/|\.dex' || true
+      - name: Build and verify the APK
+        id: build
+        uses: ./.github/actions/build-apk
 
       - name: Upload the APK
         uses: actions/upload-artifact@v4
         with:
           name: mayonaka-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: ${{ steps.build.outputs.apk }}
           if-no-files-found: error
 
       - name: Upload the mapping and lint reports on failure
