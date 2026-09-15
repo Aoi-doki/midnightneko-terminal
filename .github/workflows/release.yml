@@ -48,7 +48,9 @@ jobs:
         run: |
           set -euo pipefail
           tag="${{ inputs.version || github.ref_name }}"
-          [ "${tag#v}" = "$tag" ] && tag="v$tag"   # accept "1.0.0" as well as "v1.0.0"
+          # Accept "1.0.0" as well as "v1.0.0". Written as an if rather than `[ ] && ...`:
+          # that form returns non-zero when the test fails, which under `set -e` ends the step.
+          if [ "${tag#v}" = "$tag" ]; then tag="v$tag"; fi
           name="${tag#v}"
 
           # versionCode has to rise with every release or Android refuses to install one over
@@ -149,13 +151,13 @@ jobs:
           set -euo pipefail
           tag="${{ steps.version.outputs.tag }}"
           flags=()
-          [ "${{ steps.version.outputs.prerelease }}" = "true" ] && flags+=(--prerelease)
+          if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then flags+=(--prerelease); fi
 
           # Re-running a release for the same tag replaces its assets rather than failing.
           if gh release view "$tag" > /dev/null 2>&1; then
             echo "Release $tag already exists, updating it"
             gh release upload "$tag" "${{ steps.build.outputs.apk }}" --clobber
-            gh release edit "$tag" --notes-file /tmp/notes.md "${flags[@]}"
+            gh release edit "$tag" --notes-file /tmp/notes.md ${flags[@]+"${flags[@]}"}
           else
             # --target creates the tag at this commit when it does not already exist, which is
             # what makes the manual path work without pushing a tag ref.
@@ -163,7 +165,7 @@ jobs:
               --target "$GITHUB_SHA" \
               --title "Mayonaka $tag" \
               --notes-file /tmp/notes.md \
-              "${flags[@]}"
+              ${flags[@]+"${flags[@]}"}
           fi
 
           gh release view "$tag"
