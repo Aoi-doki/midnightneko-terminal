@@ -43,6 +43,7 @@ import dev.aoidoki.arise.ui.UiState
 import dev.aoidoki.arise.ui.components.Divider
 import dev.aoidoki.arise.ui.components.GlowButton
 import dev.aoidoki.arise.ui.components.StatBar
+import dev.aoidoki.arise.ui.components.Pane
 import dev.aoidoki.arise.ui.components.SystemWindow
 import dev.aoidoki.arise.ui.theme.LocalSys
 import dev.aoidoki.arise.ui.theme.Palette
@@ -61,12 +62,13 @@ fun SettingsScreen(vm: MainViewModel, state: UiState, perms: Perms) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ProfileWindow(vm, state)
         VoiceWindow(vm, state.settings.voice)
         CoreWindow(vm, state, onImport = { importModel.launch(arrayOf("*/*")) })
-        SystemWindow(title = "Tracking") {
+        Pane(label = "Tracking") {
             ToggleRow("The System is watching", "Count steps all day (keeps a notification).", state.settings.trackingEnabled) { vm.setTracking(it) }
             ToggleRow("Imperial units", "lb and ft instead of kg and cm.", state.settings.imperial) { vm.setImperial(it) }
             Spacer(Modifier.height(6.dp))
@@ -82,7 +84,7 @@ fun SettingsScreen(vm: MainViewModel, state: UiState, perms: Perms) {
                 style = SysType.Small.copy(color = LocalSys.current.muted),
             )
         }
-        SystemWindow(title = "Save Data") {
+        Pane(label = "Save Data") {
             Text("Your progress lives only on this phone. Export it before switching phones or reinstalling.", style = SysType.Small.copy(color = LocalSys.current.muted))
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,7 +99,7 @@ fun SettingsScreen(vm: MainViewModel, state: UiState, perms: Perms) {
             )
         }
         if (BuildConfig.DEBUG) {
-            SystemWindow(title = "Debug", accent = Palette.Gold) {
+            Pane(label = "Debug", accent = Palette.Gold) {
                 Text("Moves the game clock forward to test midnight, penalties and rank-ups.", style = SysType.Small.copy(color = LocalSys.current.muted))
                 Spacer(Modifier.height(8.dp))
                 GlowButton("Skip to tomorrow", { vm.skipDays(1) }, Modifier.fillMaxWidth(), accent = Palette.Gold)
@@ -129,12 +131,12 @@ private fun ProfileWindow(vm: MainViewModel, state: UiState) {
     }
     var open by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<String?>(null) }
-    SystemWindow(title = "Player") {
+    Pane(label = "Player") {
         if (!open) {
             Text("Edit your body numbers, your own words and your self-defined stats.", style = SysType.Small.copy(color = LocalSys.current.muted))
             Spacer(Modifier.height(8.dp))
             GlowButton("Edit profile", { open = true }, Modifier.fillMaxWidth())
-            return@SystemWindow
+            return@Pane
         }
         BodyStepFields(form)
         Spacer(Modifier.height(12.dp))
@@ -159,7 +161,7 @@ private fun ProfileWindow(vm: MainViewModel, state: UiState) {
 private fun VoiceWindow(vm: MainViewModel, v: VoiceSettings) {
     val voices by vm.voices().collectAsState()
     var showVoices by remember { mutableStateOf(false) }
-    SystemWindow(title = "The System's Voice", accent = Palette.Cyan) {
+    Pane(label = "The System's Voice", accent = Palette.Cyan) {
         ToggleRow("Voice", "The System speaks its messages.", v.enabled) { vm.setVoice(v.copy(enabled = it)) }
         ToggleRow("Chime", "The notification tone before it speaks.", v.chime) { vm.setVoice(v.copy(chime = it)) }
         SliderRow("Echo", v.echo, 0f..1f) { vm.setVoice(v.copy(echo = it)) }
@@ -201,7 +203,7 @@ private fun VoiceWindow(vm: MainViewModel, v: VoiceSettings) {
 @Composable
 private fun CoreWindow(vm: MainViewModel, state: UiState, onImport: () -> Unit) {
     val sys = LocalSys.current
-    SystemWindow(title = "The Core · On-device AI", accent = Palette.Violet) {
+    Pane(label = "The Core · On-device AI", accent = Palette.Violet) {
         when (val m = state.model) {
             is ModelState.Ready -> {
                 Text("INSTALLED", style = SysType.Label.copy(color = Palette.Good))

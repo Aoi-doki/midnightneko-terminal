@@ -66,8 +66,8 @@ class SmokeTest {
 
     private fun dismissPopups() {
         repeat(20) {
-            if (compose.onAllNodesWithText("CONFIRM").fetchSemanticsNodes().isEmpty()) return
-            compose.onAllNodesWithText("CONFIRM")[0].performClick()
+            if (compose.onAllNodesWithText("Confirm").fetchSemanticsNodes().isEmpty()) return
+            compose.onAllNodesWithText("Confirm")[0].performClick()
             compose.waitForIdle()
         }
     }
@@ -75,9 +75,9 @@ class SmokeTest {
     @Test
     fun theSystemRuns() {
         // 1. Awakening.
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("ACCEPT").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Accept").fetchSemanticsNodes().isNotEmpty() }
         screenshot("01_awakening")
-        compose.onNodeWithText("ACCEPT").performClick()
+        compose.onNodeWithText("Accept").performClick()
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("PLAYER REGISTRATION")).fetchSemanticsNodes().isNotEmpty() }
         screenshot("02_registration")
 
@@ -90,17 +90,19 @@ class SmokeTest {
             )
         }
 
-        // 2. The Status window and a Daily Quest.
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("LEVEL").fetchSemanticsNodes().isNotEmpty() }
+        // 2. The Quest window opens first, then the Status window.
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("DAILY QUEST").fetchSemanticsNodes().isNotEmpty() }
         dismissPopups()
-        screenshot("03_status")
+        screenshot("03_quest")
+        compose.onNodeWithText("Status").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("LEVEL").fetchSemanticsNodes().isNotEmpty() }
+        screenshot("04_status")
         val quest = runBlocking { graph.game.todayQuest() }
         assertNotNull(quest)
         assertTrue(quest!!.objectives.any { it.type == ObjectiveType.STEPS })
         assertTrue(runBlocking { graph.game.player() }!!.limitations.kneeCare)
-        compose.onNodeWithText("QUEST").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("GOAL").fetchSemanticsNodes().isNotEmpty() }
-        screenshot("04_quest")
+        compose.onNodeWithText("Quest").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("DAILY QUEST").fetchSemanticsNodes().isNotEmpty() }
 
         // 3. Two days pass with nothing done: the Penalty Zone.
         runBlocking {

@@ -1,5 +1,6 @@
 package dev.aoidoki.arise.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -66,6 +67,11 @@ data class PlayerEntity(
     @Embedded(prefix = "lim_") val limitations: Limitations = Limitations(),
     /** The System's one-paragraph read of the player, written by the AI (or the rules fallback). */
     val assessment: String = "",
+
+    // v2: the Shop.
+    @ColumnInfo(defaultValue = "0") val gold: Int = 0,
+    /** Ward of Continuity charges: each keeps the streak through one failed Daily Quest. */
+    @ColumnInfo(defaultValue = "0") val streakWards: Int = 0,
 )
 
 /** A stat the player defined themselves, in their own words: "max push-ups" → "22", "left knee" → "old ACL tear". */
@@ -158,4 +164,12 @@ data class EventEntity(
     val type: String,
     val title: String,
     val message: String,
+)
+
+/** How many of each item the Player holds. */
+@Serializable
+@Entity(tableName = "inventory")
+data class InventoryEntity(
+    @PrimaryKey val itemId: String,
+    val count: Int,
 )

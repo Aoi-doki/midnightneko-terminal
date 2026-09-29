@@ -23,7 +23,7 @@ enum class StatType(val short: String, val full: String) {
     STR("STR", "Strength"),
     AGI("AGI", "Agility"),
     VIT("VIT", "Vitality"),
-    SEN("SEN", "Sense"),
+    SEN("PER", "Perception"),
     INT("INT", "Intelligence"),
 }
 

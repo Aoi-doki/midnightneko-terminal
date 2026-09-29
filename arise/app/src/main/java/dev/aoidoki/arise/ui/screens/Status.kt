@@ -16,14 +16,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.aoidoki.arise.data.PlayerEntity
@@ -32,12 +34,14 @@ import dev.aoidoki.arise.engine.PenaltyEngine
 import dev.aoidoki.arise.engine.Progression
 import dev.aoidoki.arise.engine.StatType
 import dev.aoidoki.arise.ui.UiState
-import dev.aoidoki.arise.ui.components.Divider
-import dev.aoidoki.arise.ui.components.GlowButton
+import dev.aoidoki.arise.ui.components.Hairline
+import dev.aoidoki.arise.ui.components.KeyValueRow
+import dev.aoidoki.arise.ui.components.Meter
+import dev.aoidoki.arise.ui.components.Pane
 import dev.aoidoki.arise.ui.components.RankBadge
 import dev.aoidoki.arise.ui.components.StatBar
-import dev.aoidoki.arise.ui.components.SystemWindow
 import dev.aoidoki.arise.ui.components.Tag
+import dev.aoidoki.arise.ui.components.systemShape
 import dev.aoidoki.arise.ui.theme.LocalSys
 import dev.aoidoki.arise.ui.theme.Palette
 import dev.aoidoki.arise.ui.theme.SysType
@@ -45,117 +49,101 @@ import dev.aoidoki.arise.ui.theme.SysType
 @Composable
 fun StatusScreen(state: UiState, onAllocate: (StatType) -> Unit, onTitle: (String) -> Unit, onGoQuest: () -> Unit) {
     val p = state.player ?: return
-    val sys = LocalSys.current
-    val today = state.today
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (state.penalty != null) {
-            SystemWindow(title = "Penalty Zone", accent = Palette.Red, icon = "!") {
-                Text("A Penalty Quest is active. Survive it.", style = SysType.Body.copy(color = sys.text))
-                Spacer(Modifier.height(10.dp))
-                GlowButton("Go to quest", onGoQuest, Modifier.fillMaxWidth(), accent = Palette.Red)
+        StatusPane(state, p, onAllocate)
+        BodyPane(state, p)
+        AssessmentPane(p)
+        if (p.titles.isNotEmpty()) TitlesPane(p, onTitle)
+        RecordPane(p, state.today)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun StatusPane(state: UiState, p: PlayerEntity, onAllocate: (StatType) -> Unit) {
+    val sys = LocalSys.current
+    Pane(label = "Status", emphasis = true) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("LEVEL", style = SysType.Label.copy(color = sys.muted))
+                Text("${p.level}", style = SysType.Huge.copy(color = sys.text))
             }
+            RankBadge(p.rank, size = 60.dp)
         }
-        SystemWindow(title = "Status") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(p.level.toString(), style = SysType.Huge.copy(color = sys.text))
-                    Text("LEVEL", style = SysType.Label.copy(color = sys.muted, letterSpacing = 6.sp))
-                }
-                RankBadge(p.rank, size = 78.dp)
-            }
-            Spacer(Modifier.height(12.dp))
-            KeyValue("Name", p.name)
-            KeyValue("Job", p.job)
-            KeyValue("Title", p.title)
-            KeyValue("Rank", "${p.rank.displayName} · ${p.rank.epithet}")
-            Spacer(Modifier.height(14.dp))
-            StatBar("HP", p.hp, Progression.maxHp(p), Palette.Hp)
-            Spacer(Modifier.height(10.dp))
-            StatBar("MP", p.mp, Progression.maxMp(p), Palette.Mp)
-            Spacer(Modifier.height(10.dp))
-            StatBar("Fatigue", p.fatigue, 100, Palette.Fatigue)
-            Spacer(Modifier.height(10.dp))
-            StatBar("XP", p.xp, Progression.xpToNext(p.level), Palette.Xp)
-            Spacer(Modifier.height(16.dp))
-            Divider()
-            Spacer(Modifier.height(12.dp))
-            StatGrid(p, onAllocate)
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Available ability points: ", style = SysType.Label.copy(color = sys.muted))
-                Text(p.freePoints.toString(), style = SysType.Stat.copy(color = if (p.freePoints > 0) Palette.Gold else sys.text))
-            }
-            val effects = buildList {
-                if (Progression.isWeakened(p, today)) add("Weakened · XP −25%" to Palette.Red)
-                if (p.recoveryDay == today) add("Recovering" to Palette.Good)
-                if (p.fatigue >= 70) add("Exhausted" to Palette.Fatigue)
-                if (p.streak >= 7) add("Streak ${p.streak}" to Palette.Gold)
-            }
-            if (effects.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { effects.forEach { (t, c) -> Tag(t, c) } }
-            }
-        }
-        BodyWindow(state, p)
-        if (p.assessment.isNotBlank() || p.limitations.notes.isNotEmpty()) {
-            SystemWindow(title = "System Assessment", accent = Palette.Violet) {
-                if (p.assessment.isNotBlank()) Text(p.assessment, style = SysType.Body.copy(color = sys.text))
-                p.limitations.notes.forEach {
-                    Spacer(Modifier.height(6.dp))
-                    Text("• $it", style = SysType.Small.copy(color = Palette.Gold))
-                }
-            }
-        }
-        if (p.titles.isNotEmpty()) TitlesWindow(p, onTitle)
-        SystemWindow(title = "Record") {
-            KeyValue("Quests cleared", p.questsCompleted.toString())
-            KeyValue("Quests failed", p.questsFailed.toString())
-            KeyValue("Best streak", "${p.bestStreak} days")
-            KeyValue("Deaths", p.deaths.toString())
-            KeyValue("Recovery days left", "${PenaltyEngine.recoveryLeft(p, today)} this month")
+        Spacer(Modifier.height(8.dp))
+        KeyValueRow("Name", p.name)
+        KeyValueRow("Job", p.job)
+        KeyValueRow("Title", p.title)
+        KeyValueRow("Rank", p.rank.displayName)
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            StatBar("HP", p.hp, Progression.maxHp(p), Palette.Hp, Modifier.weight(1f))
+            StatBar("MP", p.mp, Progression.maxMp(p), Palette.Mp, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
-    }
-}
-
-@Composable
-private fun StatGrid(p: PlayerEntity, onAllocate: (StatType) -> Unit) {
-    val rows = StatType.entries.chunked(2)
-    rows.forEach { pair ->
-        Row(Modifier.fillMaxWidth()) {
-            pair.forEach { s ->
-                Row(
-                    Modifier
-                        .weight(1f)
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("${s.short}:", style = SysType.Stat.copy(color = LocalSys.current.muted), modifier = Modifier.width(58.dp))
-                    Text(Progression.stat(p, s).toString(), style = SysType.Stat.copy(color = LocalSys.current.text))
-                    if (p.freePoints > 0) {
-                        Spacer(Modifier.width(10.dp))
-                        Box(
-                            Modifier
-                                .size(26.dp)
-                                .border(1.dp, Palette.Gold, RoundedCornerShape(3.dp))
-                                .clickable { onAllocate(s) },
-                            contentAlignment = Alignment.Center,
-                        ) { Text("+", style = SysType.Label.copy(color = Palette.Gold, fontWeight = FontWeight.Bold)) }
-                    }
-                }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            StatBar("Fatigue", p.fatigue, 100, Palette.Fatigue, Modifier.weight(1f))
+            StatBar("EXP", p.xp, Progression.xpToNext(p.level), sys.accent, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(16.dp))
+        Hairline()
+        Spacer(Modifier.height(4.dp))
+        StatType.entries.chunked(2).forEach { pair ->
+            Row {
+                pair.forEach { s -> StatCell(s, Progression.stat(p, s), p.freePoints > 0, Modifier.weight(1f)) { onAllocate(s) } }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
-            if (pair.size == 1) Spacer(Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(4.dp))
+        Hairline()
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("REMAINING POINTS", style = SysType.Label.copy(color = sys.muted), modifier = Modifier.weight(1f))
+            Text("${p.freePoints}", style = SysType.NumLarge.copy(color = if (p.freePoints > 0) Palette.Gold else sys.text))
+        }
+        val effects = buildList {
+            if (Progression.isWeakened(p, state.today)) add("Weakened · −25% EXP" to Palette.Crimson)
+            if (p.recoveryDay == state.today) add("Recovering" to Palette.Good)
+            if (p.fatigue >= 70) add("Exhausted" to Palette.Fatigue)
+            if (p.streakWards > 0) add("Warded ×${p.streakWards}" to Palette.Violet)
+            if (p.streak >= 3) add("Streak ${p.streak}" to Palette.Gold)
+        }
+        if (effects.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { effects.forEach { (t, c) -> Tag(t, c) } }
         }
     }
 }
 
 @Composable
-private fun BodyWindow(state: UiState, p: PlayerEntity) {
+private fun StatCell(s: StatType, value: Int, canRaise: Boolean, modifier: Modifier, onRaise: () -> Unit) {
+    val sys = LocalSys.current
+    Row(modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(s.full.uppercase(), style = SysType.Label.copy(color = sys.muted, fontSize = 10.sp))
+            Text("$value", style = SysType.NumLarge.copy(color = sys.text))
+        }
+        if (canRaise) {
+            Box(
+                Modifier
+                    .padding(end = 12.dp)
+                    .size(28.dp)
+                    .border(1.dp, Palette.Gold, systemShape(5.dp))
+                    .clickable(onClick = onRaise),
+                contentAlignment = Alignment.Center,
+            ) { Text("+", style = SysType.Num.copy(color = Palette.Gold)) }
+        }
+    }
+}
+
+@Composable
+private fun BodyPane(state: UiState, p: PlayerEntity) {
     val sys = LocalSys.current
     val imperial = state.settings.imperial
     fun w(kg: Double) = if (imperial) "%.1f lb".format(kg / 0.45359237) else "%.1f kg".format(kg)
@@ -163,48 +151,82 @@ private fun BodyWindow(state: UiState, p: PlayerEntity) {
     val toLose = (p.startWeightKg - p.goalWeightKg).coerceAtLeast(0.1)
     val bmi = BodyMetrics.bmi(p.weightKg, p.heightCm)
     val steps = state.todayLog?.steps ?: 0
-    SystemWindow(title = "Body") {
+    Pane(label = "Body") {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(w(p.weightKg), style = SysType.NumLarge.copy(color = sys.text))
+            Text("  →  ${w(p.goalWeightKg)}", style = SysType.Num.copy(color = Palette.Good), modifier = Modifier.weight(1f))
+            Text(if (lost >= 0) "−${w(lost)}" else "+${w(-lost)}", style = SysType.Num.copy(color = if (lost >= 0) Palette.Good else Palette.Crimson))
+        }
+        Spacer(Modifier.height(8.dp))
+        Meter(((lost / toLose) * 100).toInt().coerceIn(0, 100), 100, Palette.Good, height = 3.dp)
+        Spacer(Modifier.height(12.dp))
         Row {
-            Column(Modifier.weight(1f)) {
-                Text(w(p.weightKg), style = SysType.Title.copy(color = sys.text))
-                Text("CURRENT", style = SysType.Small.copy(color = sys.muted, letterSpacing = 2.sp))
-            }
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                Text(w(p.goalWeightKg), style = SysType.Title.copy(color = Palette.Good))
-                Text("GOAL", style = SysType.Small.copy(color = sys.muted, letterSpacing = 2.sp))
+            MiniStat("BMI", "%.1f".format(bmi), Modifier.weight(1f))
+            MiniStat("Steps", "%,d".format(steps), Modifier.weight(1f))
+            MiniStat("Walked", "${BodyMetrics.walkKcal(steps, p.weightKg, p.heightCm)} kcal", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+fun MiniStat(label: String, value: String, modifier: Modifier = Modifier, color: Color = LocalSys.current.text) {
+    Column(modifier) {
+        Text(label.uppercase(), style = SysType.Label.copy(color = LocalSys.current.muted, fontSize = 10.sp))
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = SysType.Num.copy(color = color))
+    }
+}
+
+@Composable
+private fun AssessmentPane(p: PlayerEntity) {
+    if (p.assessment.isBlank() && p.limitations.notes.isEmpty()) return
+    val sys = LocalSys.current
+    var open by remember { mutableStateOf(false) }
+    Pane(label = "System assessment", trailing = { Text(if (open) "−" else "+", style = SysType.Num.copy(color = sys.accent), modifier = Modifier.clickable { open = !open }) }) {
+        Text(
+            p.assessment.ifBlank { "Constraints registered." },
+            style = SysType.Small.copy(color = sys.muted),
+            maxLines = if (open) Int.MAX_VALUE else 2,
+            modifier = Modifier.clickable { open = !open },
+        )
+        if (open) {
+            p.limitations.notes.forEach {
+                Spacer(Modifier.height(6.dp))
+                Text("› $it", style = SysType.Small.copy(color = Palette.Gold))
             }
         }
-        Spacer(Modifier.height(10.dp))
-        StatBar(
-            if (lost >= 0) "Lost ${w(lost)}" else "Gained ${w(-lost)}",
-            ((lost / toLose) * 100).toInt().coerceIn(0, 100), 100, Palette.Good, showNumbers = false,
-        )
-        Spacer(Modifier.height(10.dp))
-        KeyValue("BMI", "%.1f · %s".format(bmi, BodyMetrics.bmiClass(bmi)))
-        KeyValue("Steps today", "%,d".format(steps))
-        KeyValue("Walked off today", "≈ ${BodyMetrics.walkKcal(steps, p.weightKg, p.heightCm)} kcal")
-        KeyValue("Resting burn", "≈ ${BodyMetrics.bmr(p.weightKg, p.heightCm, p.age, p.sexHint)} kcal/day")
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TitlesWindow(p: PlayerEntity, onTitle: (String) -> Unit) {
-    SystemWindow(title = "Titles", accent = Palette.Violet) {
-        Text("Tap to equip.", style = SysType.Small.copy(color = LocalSys.current.muted))
-        Spacer(Modifier.height(8.dp))
+private fun TitlesPane(p: PlayerEntity, onTitle: (String) -> Unit) {
+    Pane(label = "Titles") {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             p.titles.forEach { t ->
-                Box(Modifier.clickable { onTitle(t) }) { Tag(t, if (t == p.title) Palette.Gold else Palette.Violet) }
+                Box(Modifier.clickable { onTitle(t) }) { Tag(t, if (t == p.title) Palette.Gold else LocalSys.current.muted) }
             }
         }
     }
 }
 
 @Composable
-fun KeyValue(key: String, value: String, valueColor: Color = LocalSys.current.text) {
-    Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(key.uppercase(), style = SysType.Small.copy(color = LocalSys.current.muted, letterSpacing = 1.5.sp), modifier = Modifier.weight(1f))
-        Text(value, style = SysType.Label.copy(color = valueColor))
+private fun RecordPane(p: PlayerEntity, today: Long) {
+    Pane(label = "Record") {
+        Row {
+            MiniStat("Cleared", "${p.questsCompleted}", Modifier.weight(1f))
+            MiniStat("Failed", "${p.questsFailed}", Modifier.weight(1f))
+            MiniStat("Best streak", "${p.bestStreak}", Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(12.dp))
+        Row {
+            MiniStat("Deaths", "${p.deaths}", Modifier.weight(1f))
+            MiniStat("Recovery", "${PenaltyEngine.recoveryLeft(p, today)} left", Modifier.weight(1f))
+            MiniStat("Gold", "${p.gold}", Modifier.weight(1f), Palette.Gold)
+        }
     }
 }
+
+/** Shared by other screens. */
+@Composable
+fun KeyValue(key: String, value: String, valueColor: Color = LocalSys.current.text) = KeyValueRow(key, value, valueColor)

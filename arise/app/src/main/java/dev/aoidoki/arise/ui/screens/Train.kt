@@ -57,6 +57,7 @@ import dev.aoidoki.arise.ui.UiState
 import dev.aoidoki.arise.ui.components.Chip
 import dev.aoidoki.arise.ui.components.GlowButton
 import dev.aoidoki.arise.ui.components.StatBar
+import dev.aoidoki.arise.ui.components.Pane
 import dev.aoidoki.arise.ui.components.SystemWindow
 import dev.aoidoki.arise.ui.components.staticMode
 import dev.aoidoki.arise.ui.theme.LocalSys
@@ -143,9 +144,10 @@ fun TrainScreen(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SystemWindow(title = if (assessing != null) "Assessment" else "Training") {
+        Pane(label = if (assessing != null) "Assessment" else "Training") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 trainable.forEach { t -> Chip(t.label, t == type, { if (!ws.running) type = t }) }
             }
@@ -169,7 +171,7 @@ fun TrainScreen(
         }
 
         if (effectiveMode(type, mode) == TrackMode.CAMERA) {
-            SystemWindow(animate = false) {
+            Pane(contentPadding = 8.dp) {
                 Box(
                     Modifier
                         .fillMaxWidth()
@@ -194,7 +196,7 @@ fun TrainScreen(
             }
         }
 
-        SystemWindow(accent = if (ws.running) Palette.Cyan else sys.accent) {
+        Pane(accent = if (ws.running) Palette.Cyan else sys.accent) {
             val big = when (type) {
                 ObjectiveType.PLANK_SEC -> "%d:%02d".format(ws.seconds / 60, ws.seconds % 60)
                 ObjectiveType.MEDITATE_MIN -> "%d:%02d".format(ws.seconds / 60, ws.seconds % 60)
@@ -268,7 +270,7 @@ private fun AssessmentWindow(state: UiState, results: Map<ObjectiveType, Int>, r
     val sys = LocalSys.current
     val p = state.player ?: return
     val due = p.baselines.assessedDay < 0 || state.today - p.baselines.assessedDay >= 7
-    SystemWindow(title = if (p.baselines.assessedDay < 0) "Assessment Required" else "Re-evaluation", accent = if (due) Palette.Gold else sys.accent, icon = "?") {
+    Pane(label = if (p.baselines.assessedDay < 0) "Assessment Required" else "Re-evaluation", accent = if (due) Palette.Gold else sys.accent) {
         Text(
             if (p.baselines.assessedDay < 0) "Measure your real limits so the System can calibrate your quests. Each test is counted by the tracker."
             else if (due) "A week has passed. Measure again — real improvement becomes stat growth."

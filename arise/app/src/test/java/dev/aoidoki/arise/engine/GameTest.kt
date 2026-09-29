@@ -250,4 +250,43 @@ class GameTest {
         assertEquals(str + 1, game.player()!!.str)
         assertEquals(1, game.player()!!.freePoints)
     }
+
+    @Test
+    fun `clearing the daily quest pays gold`() = runBlocking {
+        awaken()
+        completeToday()
+        val p = game.player()!!
+        assertEquals(Gold.forDaily(p.rank), p.gold)
+    }
+
+    @Test
+    fun `the shop takes gold and the item works`() = runBlocking {
+        awaken()
+        assertFalse(game.buy(Item.STAMINA_TONIC))
+        val p0 = game.player()!!
+        db.player().save(p0.copy(gold = 200, fatigue = 60))
+        assertTrue(game.buy(Item.STAMINA_TONIC))
+        assertEquals(80, game.player()!!.gold)
+        assertEquals(1, db.player().inventoryItem(Item.STAMINA_TONIC.id)!!.count)
+        assertTrue(game.use(Item.STAMINA_TONIC))
+        assertEquals(20, game.player()!!.fatigue)
+        assertEquals(0, db.player().inventoryItem(Item.STAMINA_TONIC.id)!!.count)
+        assertFalse(game.use(Item.STAMINA_TONIC))
+    }
+
+    @Test
+    fun `a ward keeps the streak through one failed day`() = runBlocking {
+        awaken()
+        completeToday()
+        val p0 = game.player()!!
+        db.player().save(p0.copy(streakWards = 1))
+        time.plusHours(24) // next day, nothing done
+        game.settle()
+        time.plusHours(24)
+        game.settle()
+        val p = game.player()!!
+        assertEquals(1, p.streak)
+        assertEquals(0, p.streakWards)
+        assertEquals(1, p.questsFailed)
+    }
 }

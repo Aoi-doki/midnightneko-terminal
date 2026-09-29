@@ -2,25 +2,21 @@ package dev.aoidoki.arise.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,48 +24,45 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.aoidoki.arise.engine.Rank
 import dev.aoidoki.arise.ui.theme.LocalSys
 import dev.aoidoki.arise.ui.theme.Palette
 import dev.aoidoki.arise.ui.theme.SysType
-import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.random.Random
 
 /** True in previews and screenshot tests: animations jump to their end state so output is deterministic. */
 @Composable
@@ -80,82 +73,119 @@ object StaticUi {
     var enabled = false
 }
 
-/** Deep-void background with slowly rising motes of mana and a faint grid. */
+/** The angular System frame: top-left and bottom-right corners cut, the other two square. */
+fun systemShape(cut: Dp = 10.dp): Shape = CutCornerShape(topStart = cut, topEnd = 0.dp, bottomEnd = cut, bottomStart = 0.dp)
+
+/** A smoky void: two soft pools of light in the dark, nothing moving. */
 @Composable
 fun SystemBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     val sys = LocalSys.current
-    val still = staticMode()
-    val motes = remember { List(38) { Triple(Random.nextFloat(), Random(it * 31).nextFloat(), 0.5f + Random.nextFloat()) } }
-    val t = if (still) 0.3f else {
-        val inf = rememberInfiniteTransition(label = "motes")
-        inf.animateFloat(0f, 1f, infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "t").value
-    }
     Box(
         modifier
             .fillMaxSize()
             .background(sys.background)
             .drawBehind {
+                drawRect(Brush.verticalGradient(listOf(Palette.Charcoal, sys.background)))
                 drawRect(
                     Brush.radialGradient(
-                        listOf(sys.backgroundGlow, sys.background),
-                        center = Offset(size.width * 0.5f, size.height * 0.12f),
-                        radius = size.maxDimension * 0.9f,
+                        listOf(sys.backgroundGlow.copy(alpha = 0.9f), Color.Transparent),
+                        center = Offset(size.width * 0.15f, size.height * 0.08f),
+                        radius = size.maxDimension * 0.6f,
                     ),
                 )
-                val step = 48.dp.toPx()
-                var x = 0f
-                while (x < size.width) {
-                    drawLine(sys.accent.copy(alpha = 0.035f), Offset(x, 0f), Offset(x, size.height), 1f)
-                    x += step
-                }
-                var y = 0f
-                while (y < size.height) {
-                    drawLine(sys.accent.copy(alpha = 0.035f), Offset(0f, y), Offset(size.width, y), 1f)
-                    y += step
-                }
-                for ((mx, my, sp) in motes) {
-                    val py = ((my - t * sp) % 1f + 1f) % 1f
-                    val px = mx + 0.015f * sin((t * 2 * PI * sp + my * 10).toFloat())
-                    val a = (sin((py * PI).toFloat()) * 0.55f).coerceAtLeast(0f)
-                    drawCircle(sys.accentSoft.copy(alpha = a * 0.5f), radius = 1.2.dp.toPx() * sp, center = Offset(px * size.width, py * size.height))
-                    drawCircle(sys.accent.copy(alpha = a * 0.12f), radius = 5.dp.toPx() * sp, center = Offset(px * size.width, py * size.height))
-                }
+                drawRect(
+                    Brush.radialGradient(
+                        listOf(sys.accent.copy(alpha = 0.05f), Color.Transparent),
+                        center = Offset(size.width * 0.9f, size.height * 0.65f),
+                        radius = size.maxDimension * 0.5f,
+                    ),
+                )
             },
         content = content,
     )
 }
 
-private fun DrawScope.glowFrame(color: Color, corner: Float, strength: Float, brackets: Boolean = true) {
-    for (i in 4 downTo 1) {
-        val w = i * 3.dp.toPx()
-        drawRoundRect(
-            color = color.copy(alpha = 0.05f * strength * (5 - i)),
-            topLeft = Offset(-w / 2, -w / 2),
-            size = Size(size.width + w, size.height + w),
-            cornerRadius = CornerRadius(corner + w / 2),
-            style = Stroke(width = w),
-        )
+/** Short runic ticks at the two cut corners: the one ornament the System allows itself. */
+private fun DrawScope.runeTicks(color: Color, cut: Float) {
+    val l = 6.dp.toPx()
+    val w = 1.dp.toPx()
+    // along the top-left cut
+    drawLine(color, Offset(0f, cut + 3.dp.toPx()), Offset(0f, cut + 3.dp.toPx() + l), w * 2)
+    drawLine(color, Offset(cut + 3.dp.toPx(), 0f), Offset(cut + 3.dp.toPx() + l, 0f), w * 2)
+    // along the bottom-right cut
+    drawLine(color, Offset(size.width, size.height - cut - 3.dp.toPx()), Offset(size.width, size.height - cut - 3.dp.toPx() - l), w * 2)
+    drawLine(color, Offset(size.width - cut - 3.dp.toPx(), size.height), Offset(size.width - cut - 3.dp.toPx() - l, size.height), w * 2)
+}
+
+private fun DrawScope.outlinePath(shape: Shape, density: androidx.compose.ui.unit.Density): Path {
+    val outline = shape.createOutline(size, LayoutDirection.Ltr, density)
+    return when (outline) {
+        is Outline.Generic -> outline.path
+        is Outline.Rectangle -> Path().apply { addRect(outline.rect) }
+        is Outline.Rounded -> Path().apply { addRoundRect(outline.roundRect) }
     }
-    drawRoundRect(color = color.copy(alpha = 0.85f), cornerRadius = CornerRadius(corner), style = Stroke(width = 1.2.dp.toPx()))
-    if (!brackets) return
-    // Corner brackets, the System window's signature.
-    val l = 14.dp.toPx()
-    val o = -4.dp.toPx()
-    val sw = 2.dp.toPx()
-    val c = color.copy(alpha = 1f)
-    fun bracket(x: Float, y: Float, dx: Float, dy: Float) {
-        drawLine(c, Offset(x, y), Offset(x + dx * l, y), sw, StrokeCap.Square)
-        drawLine(c, Offset(x, y), Offset(x, y + dy * l), sw, StrokeCap.Square)
-    }
-    bracket(o, o, 1f, 1f)
-    bracket(size.width - o, o, -1f, 1f)
-    bracket(o, size.height - o, 1f, -1f)
-    bracket(size.width - o, size.height - o, -1f, -1f)
 }
 
 /**
- * The System window: translucent panel, glowing border, corner brackets, a "[ ! ]" header and an
- * opening animation that unfolds it from its centre line like the show.
+ * A floating System pane. 1px neon border on an angular frame; [emphasis] adds the faint outer
+ * glow and the rune ticks. Use emphasis for the one pane per screen that matters.
+ */
+@Composable
+fun Pane(
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    accent: Color = LocalSys.current.accent,
+    emphasis: Boolean = false,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+    contentPadding: Dp = 16.dp,
+    fill: Color = LocalSys.current.panel,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val density = LocalDensity.current
+    val shape = systemShape()
+    Column(
+        modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val path = outlinePath(shape, density)
+                if (emphasis) {
+                    drawPath(path, accent.copy(alpha = 0.10f), style = Stroke(width = 6.dp.toPx()))
+                    drawPath(path, accent.copy(alpha = 0.18f), style = Stroke(width = 3.dp.toPx()))
+                }
+            }
+            .background(fill, shape)
+            .border(1.dp, accent.copy(alpha = if (emphasis) 0.9f else 0.35f), shape)
+            .drawBehind { if (emphasis) runeTicks(accent, 10.dp.toPx()) },
+    ) {
+        if (label != null || trailing != null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = contentPadding, end = contentPadding, top = 12.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (label != null) {
+                    Box(
+                        Modifier
+                            .size(width = 3.dp, height = 12.dp)
+                            .background(accent),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(label.uppercase(), style = SysType.Label.copy(color = accent), modifier = Modifier.weight(1f))
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                trailing?.invoke(this)
+            }
+            Hairline(color = accent.copy(alpha = 0.25f))
+        }
+        Column(Modifier.padding(contentPadding)) { content() }
+    }
+}
+
+/**
+ * The System notification window — reserved for popups, where the show uses it: a boxed "!" and a
+ * framed title, unfolding from its centre line.
  */
 @Composable
 fun SystemWindow(
@@ -169,76 +199,60 @@ fun SystemWindow(
     val sys = LocalSys.current
     val still = staticMode() || !animate
     val open = remember { Animatable(if (still) 1f else 0f) }
-    LaunchedEffect(Unit) { if (!still) open.animateTo(1f, tween(420, easing = FastOutSlowInEasing)) }
-    val shimmer = if (still) 0f else {
-        val inf = rememberInfiniteTransition(label = "scan")
-        inf.animateFloat(0f, 1f, infiniteRepeatable(tween(3800, easing = LinearEasing)), label = "s").value
-    }
-    val corner = 6.dp
+    LaunchedEffect(Unit) { if (!still) open.animateTo(1f, tween(320, easing = FastOutSlowInEasing)) }
     Box(
-        modifier
-            .padding(6.dp)
-            .graphicsLayer {
-                scaleY = 0.04f + 0.96f * open.value
-                alpha = open.value.coerceIn(0f, 1f)
-            }
-            .drawBehind { glowFrame(accent, corner.toPx(), 1f) }
-            .background(sys.panel, RoundedCornerShape(corner))
-            .drawWithContent {
-                drawContent()
-                val y = size.height * shimmer
-                drawRect(
-                    Brush.verticalGradient(listOf(Color.Transparent, accent.copy(alpha = 0.07f), Color.Transparent), startY = y - 40f, endY = y + 40f),
-                    topLeft = Offset(0f, y - 40f),
-                    size = Size(size.width, 80f),
-                )
-            },
+        modifier.graphicsLayer {
+            scaleY = 0.05f + 0.95f * open.value
+            alpha = open.value
+        },
     ) {
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+        Pane(emphasis = true, accent = accent, contentPadding = 20.dp, fill = Palette.Charcoal) {
             if (title != null) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Box(
                         Modifier
-                            .size(26.dp)
-                            .border(1.4.dp, accent, RoundedCornerShape(3.dp))
-                            .background(accent.copy(alpha = 0.12f), RoundedCornerShape(3.dp)),
+                            .size(24.dp)
+                            .border(1.dp, accent, systemShape(5.dp)),
                         contentAlignment = Alignment.Center,
-                    ) {
-                        Text(icon, style = SysType.Label.copy(color = sys.text, fontWeight = FontWeight.Bold))
-                    }
-                    Spacer(Modifier.width(12.dp))
+                    ) { Text(icon, style = SysType.Num.copy(color = sys.text, fontWeight = FontWeight.Bold)) }
+                    Spacer(Modifier.width(10.dp))
                     Box(
                         Modifier
                             .weight(1f)
-                            .border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(3.dp))
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                            .border(1.dp, accent.copy(alpha = 0.5f), systemShape(5.dp))
+                            .padding(horizontal = 12.dp, vertical = 5.dp),
                         contentAlignment = Alignment.Center,
-                    ) {
-                        Text(title.uppercase(), style = SysType.Header.copy(color = sys.text), textAlign = TextAlign.Center)
-                    }
+                    ) { Text(title.uppercase(), style = SysType.Label.copy(color = sys.text, fontSize = 12.sp, letterSpacing = 2.sp), textAlign = TextAlign.Center) }
                 }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(16.dp))
             }
             content()
         }
     }
 }
 
-/** Text that types itself out, like System messages do. */
+/** Kept for call sites that animated text in; the remake shows text immediately. */
 @Composable
-fun TypewriterText(text: String, style: TextStyle, modifier: Modifier = Modifier, charMillis: Long = 18, textAlign: TextAlign? = null) {
-    val still = staticMode()
-    var shown by remember(text) { mutableIntStateOf(if (still) text.length else 0) }
-    LaunchedEffect(text) {
-        if (still) return@LaunchedEffect
-        while (shown < text.length) {
-            delay(charMillis)
-            shown = (shown + 1).coerceAtMost(text.length)
-        }
-    }
-    Text(text.take(shown), style = style, modifier = modifier, textAlign = textAlign)
+fun TypewriterText(text: String, style: TextStyle, modifier: Modifier = Modifier, @Suppress("UNUSED_PARAMETER") charMillis: Long = 0, textAlign: TextAlign? = null) {
+    Text(text, style = style, modifier = modifier, textAlign = textAlign)
 }
 
+/** A flat 1-colour meter. No gloss, no glow: just the value. */
+@Composable
+fun Meter(value: Int, max: Int, color: Color, modifier: Modifier = Modifier, height: Dp = 4.dp) {
+    val sys = LocalSys.current
+    val frac by animateFloatAsState(if (max <= 0) 0f else (value.toFloat() / max).coerceIn(0f, 1f), tween(500), label = "meter")
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(height),
+    ) {
+        drawRect(sys.hairline)
+        if (frac > 0f) drawRect(color, size = size.copy(width = size.width * frac))
+    }
+}
+
+/** Label on the left, "value / max" in mono on the right, a meter underneath. */
 @Composable
 fun StatBar(
     label: String,
@@ -246,37 +260,70 @@ fun StatBar(
     max: Int,
     color: Color,
     modifier: Modifier = Modifier,
-    height: Dp = 10.dp,
+    height: Dp = 4.dp,
     showNumbers: Boolean = true,
 ) {
     val sys = LocalSys.current
-    val frac by animateFloatAsState(if (max <= 0) 0f else (value.toFloat() / max).coerceIn(0f, 1f), tween(700), label = "bar")
     Column(modifier) {
         if (label.isNotEmpty() || showNumbers) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(label, style = SysType.Label.copy(color = sys.text))
-                if (showNumbers) Text("$value / $max", style = SysType.Mono.copy(color = sys.muted))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                Text(label.uppercase(), style = SysType.Label.copy(color = sys.muted), modifier = Modifier.weight(1f))
+                if (showNumbers) {
+                    Text("$value", style = SysType.Num.copy(color = sys.text))
+                    Text(" / $max", style = SysType.Num.copy(color = Palette.Dim))
+                }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
         }
-        Canvas(
-            Modifier
-                .fillMaxWidth()
-                .height(height),
-        ) {
-            val r = CornerRadius(size.height / 2)
-            drawRoundRect(color.copy(alpha = 0.12f), cornerRadius = r)
-            drawRoundRect(color.copy(alpha = 0.35f), cornerRadius = r, style = Stroke(1.dp.toPx()))
-            if (frac > 0f) {
-                val w = size.width * frac
-                drawRoundRect(color.copy(alpha = 0.25f), topLeft = Offset(0f, -2f), size = Size(w, size.height + 4f), cornerRadius = r)
-                drawRoundRect(Brush.horizontalGradient(listOf(color.copy(alpha = 0.7f), color)), size = Size(w, size.height), cornerRadius = r)
-                drawRoundRect(Color.White.copy(alpha = 0.25f), size = Size(w, size.height * 0.35f), cornerRadius = r)
-            }
-        }
+        Meter(value, max, color, height = height)
     }
 }
 
+enum class ButtonKind { PRIMARY, SECONDARY, DANGER, GHOST }
+
+@Composable
+fun SysButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    kind: ButtonKind = ButtonKind.PRIMARY,
+    enabled: Boolean = true,
+    accent: Color? = null,
+) {
+    val sys = LocalSys.current
+    val base = accent ?: when (kind) {
+        ButtonKind.DANGER -> Palette.Crimson
+        ButtonKind.SECONDARY -> sys.muted
+        else -> sys.accent
+    }
+    val c = if (enabled) base else Palette.Dim
+    val shape = systemShape(7.dp)
+    val content = @Composable {
+        Text(
+            text,
+            style = SysType.BodyStrong.copy(color = if (!enabled) Palette.Dim else if (kind == ButtonKind.SECONDARY) sys.text else c),
+            textAlign = TextAlign.Center,
+        )
+    }
+    when (kind) {
+        ButtonKind.GHOST -> Box(
+            modifier
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 4.dp, vertical = 10.dp),
+            contentAlignment = Alignment.Center,
+        ) { content() }
+        else -> Box(
+            modifier
+                .background(if (kind == ButtonKind.SECONDARY) Color.Transparent else c.copy(alpha = 0.10f), shape)
+                .border(1.dp, if (kind == ButtonKind.SECONDARY) sys.hairline else c.copy(alpha = 0.8f), shape)
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) { content() }
+    }
+}
+
+/** Compatibility shim for older call sites. */
 @Composable
 fun GlowButton(
     text: String,
@@ -287,30 +334,56 @@ fun GlowButton(
     filled: Boolean = false,
 ) {
     val sys = LocalSys.current
-    val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val c = if (enabled) accent else Palette.Dim
-    Box(
+    val kind = when {
+        accent == Palette.Crimson || accent == Palette.Red -> ButtonKind.DANGER
+        accent == sys.muted -> ButtonKind.SECONDARY
+        filled || accent == sys.accent -> ButtonKind.PRIMARY
+        else -> ButtonKind.PRIMARY
+    }
+    SysButton(text, onClick, modifier, kind, enabled, accent = if (kind == ButtonKind.PRIMARY && accent != sys.accent) accent else null)
+}
+
+/** A tappable list row: title and subtitle on the left, anything on the right. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ListRow(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
+    val sys = LocalSys.current
+    Row(
         modifier
-            .drawBehind { if (enabled) glowFrame(c, 4.dp.toPx(), if (pressed) 1.8f else 0.7f, brackets = false) else drawRoundRect(c, cornerRadius = CornerRadius(4.dp.toPx()), style = Stroke(1.dp.toPx())) }
-            .background(if (filled || pressed) c.copy(alpha = 0.22f) else c.copy(alpha = 0.06f), RoundedCornerShape(4.dp))
-            .clickable(interactionSource = source, indication = null, enabled = enabled, onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center,
+            .fillMaxWidth()
+            .then(if (onClick != null || onLongClick != null) Modifier.combinedClickable(onClick = { onClick?.invoke() }, onLongClick = onLongClick) else Modifier)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text.uppercase(), style = SysType.Label.copy(color = if (enabled) sys.text else Palette.Dim, letterSpacing = 3.sp), textAlign = TextAlign.Center)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = SysType.BodyStrong.copy(color = sys.text))
+            if (subtitle != null) Text(subtitle, style = SysType.Small.copy(color = sys.muted))
+        }
+        trailing()
     }
 }
 
-/** Rank crest: a glowing hexagon with the rank letter. */
+/** The key/value line from the show's status window: "LABEL ........ value". */
+@Composable
+fun KeyValueRow(key: String, value: String, valueColor: Color = LocalSys.current.text) {
+    val sys = LocalSys.current
+    Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(key.uppercase(), style = SysType.Label.copy(color = sys.muted), modifier = Modifier.width(96.dp))
+        Text(value, style = SysType.BodyStrong.copy(color = valueColor), modifier = Modifier.weight(1f))
+    }
+}
+
+/** Rank crest: a thin hexagon with the rank letter. */
 @Composable
 fun RankBadge(rank: Rank, modifier: Modifier = Modifier, size: Dp = 72.dp) {
     val color = Color(rank.color)
-    val still = staticMode()
-    val pulse = if (still) 1f else {
-        val inf = rememberInfiniteTransition(label = "pulse")
-        inf.animateFloat(0.7f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Reverse), label = "p").value
-    }
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val r = this.size.minDimension / 2 * 0.92f
@@ -323,11 +396,11 @@ fun RankBadge(rank: Rank, modifier: Modifier = Modifier, size: Dp = 72.dp) {
                 }
                 close()
             }
-            for (i in 3 downTo 1) drawPath(hex, color.copy(alpha = 0.08f * i * pulse), style = Stroke(width = i * 5.dp.toPx()))
-            drawPath(hex, Brush.radialGradient(listOf(color.copy(alpha = 0.35f), Color.Transparent), center = c, radius = r))
-            drawPath(hex, color, style = Stroke(width = 2.dp.toPx()))
+            drawPath(hex, color.copy(alpha = 0.12f))
+            drawPath(hex, color.copy(alpha = 0.25f), style = Stroke(width = 4.dp.toPx()))
+            drawPath(hex, color, style = Stroke(width = 1.dp.toPx()))
         }
-        Text(rank.label, style = SysType.Title.copy(color = Color.White, fontSize = (size.value * 0.42f).sp, letterSpacing = 0.sp))
+        Text(rank.label, style = SysType.Title.copy(color = Color.White, fontSize = (size.value * 0.42f).sp))
     }
 }
 
@@ -335,30 +408,27 @@ fun RankBadge(rank: Rank, modifier: Modifier = Modifier, size: Dp = 72.dp) {
 fun Tag(text: String, color: Color = LocalSys.current.accent, modifier: Modifier = Modifier) {
     Box(
         modifier
-            .border(1.dp, color.copy(alpha = 0.7f), RoundedCornerShape(3.dp))
-            .background(color.copy(alpha = 0.10f), RoundedCornerShape(3.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .border(1.dp, color.copy(alpha = 0.6f), systemShape(4.dp))
+            .padding(horizontal = 7.dp, vertical = 3.dp),
     ) {
-        Text(text.uppercase(), style = SysType.Small.copy(color = color, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp))
+        Text(text.uppercase(), style = SysType.Label.copy(color = color, fontSize = 10.sp))
     }
 }
 
 @Composable
-fun Divider(modifier: Modifier = Modifier) {
-    val sys = LocalSys.current
+fun Hairline(modifier: Modifier = Modifier, color: Color = LocalSys.current.hairline) {
     Canvas(
         modifier
             .fillMaxWidth()
             .height(1.dp),
-    ) {
-        drawLine(
-            Brush.horizontalGradient(listOf(Color.Transparent, sys.accent.copy(alpha = 0.6f), Color.Transparent)),
-            Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx(),
-        )
-    }
+    ) { drawLine(color, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx(), StrokeCap.Butt) }
 }
 
-/** Themed single-line (or multi-line) text field with a System label. */
+/** Old name for [Hairline]. */
+@Composable
+fun Divider(modifier: Modifier = Modifier) = Hairline(modifier)
+
+/** A text field in a hairline frame, with a small mono label above. */
 @Composable
 fun SysField(
     label: String,
@@ -373,25 +443,25 @@ fun SysField(
     val sys = LocalSys.current
     Column(modifier) {
         if (label.isNotEmpty()) {
-            Text(label.uppercase(), style = SysType.Small.copy(color = sys.muted, letterSpacing = 2.sp))
-            Spacer(Modifier.height(4.dp))
+            Text(label.uppercase(), style = SysType.Label.copy(color = sys.muted))
+            Spacer(Modifier.height(6.dp))
         }
         BasicTextField(
             value = value,
             onValueChange = onChange,
             singleLine = singleLine,
             minLines = minLines,
-            textStyle = SysType.Body.copy(color = sys.text),
+            textStyle = (if (numeric) SysType.Num else SysType.Body).copy(color = sys.text, fontSize = 15.sp),
             cursorBrush = SolidColor(sys.accent),
             keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Decimal) else KeyboardOptions.Default,
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, sys.accent.copy(alpha = 0.45f), RoundedCornerShape(4.dp))
-                .background(sys.accent.copy(alpha = 0.05f), RoundedCornerShape(4.dp))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .background(Palette.Charcoal, systemShape(6.dp))
+                .border(1.dp, sys.hairline, systemShape(6.dp))
+                .padding(horizontal = 12.dp, vertical = 11.dp),
             decorationBox = { inner ->
                 Box {
-                    if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, style = SysType.Body.copy(color = sys.muted.copy(alpha = 0.6f)))
+                    if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, style = SysType.Body.copy(color = Palette.Dim))
                     inner()
                 }
             },
@@ -399,16 +469,40 @@ fun SysField(
     }
 }
 
+/** Segmented choice. */
 @Composable
 fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val sys = LocalSys.current
     Box(
         modifier
-            .border(1.dp, if (selected) sys.accent else sys.accent.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
-            .background(if (selected) sys.accent.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(3.dp))
+            .background(if (selected) sys.accent.copy(alpha = 0.12f) else Color.Transparent, systemShape(5.dp))
+            .border(1.dp, if (selected) sys.accent else sys.hairline, systemShape(5.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {
-        Text(text, style = SysType.Label.copy(color = if (selected) sys.text else sys.muted))
+        Text(text, style = SysType.Small.copy(color = if (selected) sys.text else sys.muted, fontWeight = FontWeight.Medium))
     }
+}
+
+/** A thin progress ring with the value in mono at its centre. */
+@Composable
+fun ProgressRing(fraction: Float, modifier: Modifier = Modifier, size: Dp = 108.dp, color: Color = LocalSys.current.accent, center: @Composable () -> Unit) {
+    val sys = LocalSys.current
+    val f by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(600), label = "ring")
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = 3.dp.toPx()
+            drawArc(sys.hairline, 0f, 360f, false, style = Stroke(w), topLeft = Offset(w, w), size = this.size.copy(this.size.width - 2 * w, this.size.height - 2 * w))
+            drawArc(color, -90f, 360f * f, false, style = Stroke(w, cap = StrokeCap.Butt), topLeft = Offset(w, w), size = this.size.copy(this.size.width - 2 * w, this.size.height - 2 * w))
+        }
+        center()
+    }
+}
+
+@Composable
+fun SectionGap() = Spacer(Modifier.height(12.dp))
+
+@Composable
+fun PaneColumn(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
 }

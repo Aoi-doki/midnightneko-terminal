@@ -16,6 +16,7 @@ object Backup {
         val days: List<DayLogEntity>,
         val weights: List<WeightEntity>,
         val events: List<EventEntity>,
+        val inventory: List<InventoryEntity> = emptyList(),
     )
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false; encodeDefaults = true }
@@ -29,6 +30,7 @@ object Backup {
             days = db.logs().allDays(),
             weights = db.logs().weights(),
             events = db.logs().events(),
+            inventory = db.player().inventory(),
         )
         return json.encodeToString(save)
     }
@@ -46,6 +48,7 @@ object Backup {
             m.insertDays(save.days)
             m.insertWeights(save.weights)
             m.insertEvents(save.events)
+            m.insertInventory(save.inventory)
         }
         return true
     }

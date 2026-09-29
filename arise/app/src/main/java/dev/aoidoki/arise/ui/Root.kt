@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +48,7 @@ import dev.aoidoki.arise.ui.components.SystemBackground
 import dev.aoidoki.arise.ui.components.SystemWindow
 import dev.aoidoki.arise.ui.components.TypewriterText
 import dev.aoidoki.arise.ui.screens.AwakeningScreen
+import dev.aoidoki.arise.ui.screens.InventoryScreen
 import dev.aoidoki.arise.ui.screens.LogScreen
 import dev.aoidoki.arise.ui.screens.QuestScreen
 import dev.aoidoki.arise.ui.screens.RankScreen
@@ -59,7 +62,10 @@ import dev.aoidoki.arise.ui.theme.SysType
 import dev.aoidoki.arise.engine.ObjectiveType
 import kotlinx.coroutines.delay
 
-enum class Tab(val label: String) { STATUS("Status"), QUEST("Quest"), TRAIN("Train"), RANK("Rank"), LOG("Log"), SETTINGS("Settings") }
+enum class Tab(val label: String, val inBar: Boolean = true) {
+    QUEST("Quest"), STATUS("Status"), TRAIN("Train"), ITEMS("Items"), RANK("Rank"),
+    LOG("History", inBar = false), SETTINGS("Settings", inBar = false),
+}
 
 @Composable
 fun AriseRoot(vm: MainViewModel, perms: Perms) {
@@ -80,19 +86,24 @@ fun AriseRoot(vm: MainViewModel, perms: Perms) {
 
 @Composable
 fun MainShell(vm: MainViewModel, state: UiState, perms: Perms) {
-    var tab by rememberSaveable { mutableIntStateOf(if (state.penalty != null) Tab.QUEST.ordinal else Tab.STATUS.ordinal) }
+    // The quest is the reason to open the app, so it's home.
+    var tab by rememberSaveable { mutableIntStateOf(Tab.QUEST.ordinal) }
     var trainType by rememberSaveable { mutableIntStateOf(ObjectiveType.PUSHUPS.ordinal) }
+    // Ask for step tracking and notifications once, in context, instead of in a permissions wall.
+    LaunchedEffect(Unit) {
+        if (!perms.activity) perms.request(dev.aoidoki.arise.Perm.ACTIVITY)
+        else if (!perms.notifications) perms.request(dev.aoidoki.arise.Perm.NOTIFICATIONS)
+    }
     Column(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
-        TopBar(state, onSettings = { tab = Tab.SETTINGS.ordinal })
+        TopBar(state, current = Tab.entries[tab], onHistory = { tab = Tab.LOG.ordinal }, onSettings = { tab = Tab.SETTINGS.ordinal })
         Box(Modifier.weight(1f)) {
             AnimatedContent(targetState = tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                 when (Tab.entries[t]) {
-                    Tab.STATUS -> StatusScreen(state, onAllocate = vm::allocate, onTitle = vm::equipTitle, onGoQuest = { tab = Tab.QUEST.ordinal })
                     Tab.QUEST -> QuestScreen(
                         state,
                         onTrain = { type -> trainType = type.ordinal; tab = Tab.TRAIN.ordinal },
@@ -102,6 +113,7 @@ fun MainShell(vm: MainViewModel, state: UiState, perms: Perms) {
                         onStartTracker = { perms.request(dev.aoidoki.arise.Perm.ACTIVITY) },
                         trackerGranted = perms.activity,
                     )
+                    Tab.STATUS -> StatusScreen(state, onAllocate = vm::allocate, onTitle = vm::equipTitle, onGoQuest = { tab = Tab.QUEST.ordinal })
                     Tab.TRAIN -> TrainScreen(
                         state, perms,
                         initialType = ObjectiveType.entries[trainType],
@@ -109,6 +121,7 @@ fun MainShell(vm: MainViewModel, state: UiState, perms: Perms) {
                         onAssessment = vm::assessment,
                         say = { text -> vm.say(text) },
                     )
+                    Tab.ITEMS -> InventoryScreen(state, onBuy = vm::buy, onUse = vm::use)
                     Tab.RANK -> RankScreen(state, onAcceptTrial = vm::acceptTrial, onEvaluate = vm::evaluate)
                     Tab.LOG -> LogScreen(state, onAddWeight = vm::addWeight)
                     Tab.SETTINGS -> SettingsScreen(vm, state, perms)
@@ -120,26 +133,43 @@ fun MainShell(vm: MainViewModel, state: UiState, perms: Perms) {
 }
 
 @Composable
-private fun TopBar(state: UiState, onSettings: () -> Unit) {
+private fun TopBar(state: UiState, current: Tab, onHistory: () -> Unit, onSettings: () -> Unit) {
     val sys = LocalSys.current
     val p = state.player ?: return
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(if (sys.penalty) "PENALTY ZONE" else "SYSTEM", style = SysType.Header.copy(color = sys.accent, letterSpacing = 6.sp))
-            Text("${p.name.uppercase()} · LV. ${p.level} · ${p.rank.displayName.uppercase()}", style = SysType.Small.copy(color = sys.muted, letterSpacing = 2.sp))
+            Text(
+                if (sys.penalty) "PENALTY ZONE" else "SYSTEM · ${current.label.uppercase()}",
+                style = SysType.Label.copy(color = sys.accent),
+            )
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(p.name, style = SysType.Header.copy(color = sys.text))
+                Text("  Lv ${p.level} · ${p.rank.label}-Rank", style = SysType.Num.copy(color = sys.muted, fontSize = 12.sp))
+            }
         }
-        Icon(
-            Icons.Outlined.Settings, contentDescription = "Settings", tint = sys.muted,
-            modifier = Modifier
-                .size(28.dp)
-                .clickable(onClick = onSettings),
-        )
+        Text("G ", style = SysType.Num.copy(color = Palette.Gold, fontSize = 12.sp))
+        Text("%,d".format(p.gold), style = SysType.Num.copy(color = sys.text, fontSize = 12.sp))
+        Spacer(Modifier.width(6.dp))
+        IconSlot(Icons.Outlined.History, "History", current == Tab.LOG, onHistory)
+        IconSlot(Icons.Outlined.Settings, "Settings", current == Tab.SETTINGS, onSettings)
     }
+}
+
+@Composable
+private fun IconSlot(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
+    val sys = LocalSys.current
+    Box(
+        Modifier
+            .size(40.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, contentDescription = label, tint = if (on) sys.accent else sys.muted, modifier = Modifier.size(20.dp)) }
 }
 
 @Composable
@@ -148,30 +178,27 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .background(sys.background.copy(alpha = 0.92f))
-            .drawBehind { drawLine(sys.accent.copy(alpha = 0.5f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+            .background(sys.background)
+            .drawBehind { drawLine(sys.hairline, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
+            .padding(top = 4.dp, bottom = 6.dp),
     ) {
-        Tab.entries.filter { it != Tab.SETTINGS }.forEach { t ->
+        Tab.entries.filter { it.inBar }.forEach { t ->
             val on = t.ordinal == selected
             Column(
                 Modifier
+                    .weight(1f)
                     .clickable { onSelect(t.ordinal) }
-                    .padding(horizontal = 8.dp),
+                    .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    t.label.uppercase(),
-                    style = SysType.Label.copy(color = if (on) sys.text else sys.muted, letterSpacing = 2.sp),
-                )
-                Spacer(Modifier.height(4.dp))
                 Box(
                     Modifier
-                        .width(if (on) 24.dp else 0.dp)
+                        .width(18.dp)
                         .height(2.dp)
                         .background(if (on) sys.accent else Color.Transparent),
                 )
+                Spacer(Modifier.height(8.dp))
+                Text(t.label, style = SysType.Small.copy(color = if (on) sys.text else Palette.Dim, fontWeight = FontWeight.Medium))
             }
         }
     }
