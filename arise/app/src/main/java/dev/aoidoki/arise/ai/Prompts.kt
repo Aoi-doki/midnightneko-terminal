@@ -72,7 +72,7 @@ object Prompts {
             ${if (avoid != null) "Make it clearly different from: ${avoid.objectives.joinToString(", ") { key(it.type) }}." else ""}
             "flavor" is one or two sentences the System says when the quest arrives, addressing the Player.
             JSON format:
-            {"title":"Daily Quest: Preparations to Become Powerful","flavor":"...","objectives":[{"type":"steps","target":8000},{"type":"pushups","target":30}]}
+            {"title":"Daily Quest: Preparing to Become Stronger","flavor":"...","objectives":[{"type":"steps","target":8000},{"type":"pushups","target":30}]}
             """.trimIndent(),
         )
     }

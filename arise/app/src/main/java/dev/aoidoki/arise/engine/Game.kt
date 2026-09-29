@@ -5,6 +5,7 @@ import dev.aoidoki.arise.data.AriseDatabase
 import dev.aoidoki.arise.data.CustomStatEntity
 import dev.aoidoki.arise.data.DayLogEntity
 import dev.aoidoki.arise.data.EventEntity
+import dev.aoidoki.arise.data.InventoryEntity
 import dev.aoidoki.arise.data.ObjectiveEntity
 import dev.aoidoki.arise.data.PlayerEntity
 import dev.aoidoki.arise.data.QuestEntity
@@ -48,6 +49,7 @@ class Game(private val db: AriseDatabase, val time: TimeSource) {
     fun observeDays(limit: Int = 60): Flow<List<DayLogEntity>> = logs.observeRecent(limit)
     fun observeWeights(): Flow<List<WeightEntity>> = logs.observeWeights()
     fun observeEventLog(limit: Int = 200): Flow<List<EventEntity>> = logs.observeEvents(limit)
+    fun observeInventory(): Flow<List<InventoryEntity>> = players.observeInventory()
 
     suspend fun player(): PlayerEntity? = players.get()
     suspend fun customStats(): List<CustomStatEntity> = players.customStats()
@@ -305,12 +307,14 @@ class Game(private val db: AriseDatabase, val time: TimeSource) {
             return Progression.heal(p, 0.2, 0.2) to null
         }
         quests.update(q.quest.copy(status = QuestStatus.FAILED, completedAt = now))
+        val warded = p.streakWards > 0
         val o = PenaltyEngine.failDaily(p, completion)
-        p = o.player
+        p = if (warded) o.player.copy(streak = if (o.died) 0 else p.streak, streakWards = p.streakWards - 1) else o.player
         logs.upsert(log.copy(completion = completion.toFloat(), result = "FAILED", xpLost = o.xpLost, hpLost = o.hpLost))
         out += SystemEvent(
             SystemEvent.Type.WARNING, "Daily Quest Failed",
-            "Daily Quest incomplete (${(completion * 100).roundToInt()}%). HP -${o.hpLost}, XP -${o.xpLost}. Streak reset.",
+            "Daily Quest incomplete (${(completion * 100).roundToInt()}%). HP -${o.hpLost}, XP -${o.xpLost}. " +
+                if (warded && !o.died) "The Ward of Continuity shattered. Streak kept." else "Streak reset.",
             "Daily quest incomplete. A penalty will be applied.",
         )
         if (o.died) out += deathEvent(p)
@@ -505,17 +509,19 @@ class Game(private val db: AriseDatabase, val time: TimeSource) {
         when (q.quest.kind) {
             QuestKind.DAILY -> {
                 val streak = p.streak + 1
+                val gold = Gold.forDaily(p.rank) + if (streak % 7 == 0) Gold.STREAK_WEEK_BONUS else 0
                 p = Progression.fullRestore(
                     p.copy(
                         streak = streak, bestStreak = max(p.bestStreak, streak), questsCompleted = p.questsCompleted + 1,
                         freePoints = p.freePoints + if (streak % 7 == 0) 2 else 0,
+                        gold = p.gold + gold,
                     ),
                 )
                 val log = logs.day(q.quest.day) ?: DayLogEntity(q.quest.day)
                 logs.upsert(log.copy(completion = 1f, result = "CLEARED", xpGained = log.xpGained + xp.gained))
                 out += SystemEvent(
                     SystemEvent.Type.QUEST_COMPLETED, "Daily Quest Complete",
-                    "Rewards: XP +${xp.gained}, full recovery. Streak: $streak day(s)." +
+                    "Rewards: XP +${xp.gained}, Gold +$gold, full recovery. Streak: $streak day(s)." +
                         (if (exceeded) " Bonus: every goal exceeded by half." else "") +
                         (if (streak % 7 == 0) " Streak reward: +2 ability points." else ""),
                     "You have completed the daily quest. Rewards have been distributed.",
@@ -523,18 +529,19 @@ class Game(private val db: AriseDatabase, val time: TimeSource) {
             }
             QuestKind.PENALTY -> {
                 clearedPenalty = true
+                p = p.copy(gold = p.gold + Gold.PENALTY_SURVIVED)
                 out += SystemEvent(
                     SystemEvent.Type.PENALTY_CLEARED, "Survived",
-                    "You have survived the Penalty Zone. XP +${xp.gained}.",
+                    "You have survived the Penalty Zone. XP +${xp.gained}, Gold +${Gold.PENALTY_SURVIVED}.",
                     "You have survived the penalty zone.",
                 )
             }
             QuestKind.TRIAL -> {
                 val rank = q.quest.targetRank ?: p.rank.next ?: p.rank
-                p = p.copy(rank = rank, job = jobFor(rank, p.job))
+                p = p.copy(rank = rank, job = jobFor(rank, p.job), gold = p.gold + Gold.forTrial(rank))
                 out += SystemEvent(
                     SystemEvent.Type.RANK_UP, "Rank Up",
-                    "Re-evaluation complete. You are now a ${rank.displayName} Hunter: ${rank.epithet}. XP +${xp.gained}.",
+                    "Re-evaluation complete. You are now a ${rank.displayName} Hunter: ${rank.epithet}. XP +${xp.gained}, Gold +${Gold.forTrial(rank)}.",
                     "Re-evaluation complete. You are now ${rank.displayName}.",
                 )
             }
@@ -564,6 +571,44 @@ class Game(private val db: AriseDatabase, val time: TimeSource) {
             out += SystemEvent(SystemEvent.Type.TITLE, "Title Acquired", "You have acquired the title \"${t.name}\". ${t.description}", "You have acquired a title. ${t.name}.")
         }
         return p
+    }
+
+    // ---- Inventory and Shop --------------------------------------------------------------------
+
+    /** Buy one [item]. Returns false when the Player can't afford it. */
+    suspend fun buy(item: Item): Boolean {
+        val out = lock.withLock {
+            val p = players.get() ?: return@withLock null
+            if (p.gold < item.price) return@withLock null
+            players.save(p.copy(gold = p.gold - item.price))
+            val held = players.inventoryItem(item.id)?.count ?: 0
+            players.saveInventory(InventoryEntity(item.id, held + 1))
+            // Logged, not announced: a popup and a voice line on every purchase would get old fast.
+            logs.insertEvent(EventEntity(time = time.now(), type = SystemEvent.Type.INFO.name, title = "Item Acquired", message = "${item.label}. Gold -${item.price}."))
+            true
+        } ?: return false
+        return out
+    }
+
+    /** Use one [item] from the inventory. Returns false if none is held. */
+    suspend fun use(item: Item): Boolean {
+        val out = lock.withLock {
+            var p = players.get() ?: return@withLock null
+            val held = players.inventoryItem(item.id)?.count ?: 0
+            if (held <= 0) return@withLock null
+            p = when (item) {
+                Item.HEALING_POTION -> Progression.heal(p, 0.30)
+                Item.MANA_CRYSTAL -> p.copy(mp = (p.mp + 30).coerceAtMost(Progression.maxMp(p)))
+                Item.STAMINA_TONIC -> p.copy(fatigue = (p.fatigue - 40).coerceAtLeast(0))
+                Item.STREAK_WARD -> p.copy(streakWards = p.streakWards + 1)
+                Item.ELIXIR_OF_LIFE -> Progression.fullRestore(p).copy(weakenedUntilDay = -1)
+            }
+            players.save(p)
+            players.saveInventory(InventoryEntity(item.id, held - 1))
+            listOf(SystemEvent(SystemEvent.Type.INFO, item.label, item.effect, "${item.label} used."))
+        } ?: return false
+        announce(out)
+        return true
     }
 
     // ---- Player actions -----------------------------------------------------------------------
@@ -733,10 +778,10 @@ class Game(private val db: AriseDatabase, val time: TimeSource) {
             if (after > before) {
                 val kgs = after - before
                 val xp = Progression.addXp(p, 120 * kgs, time.today())
-                p = xp.player
+                p = xp.player.copy(gold = xp.player.gold + Gold.PER_KG_LOST * kgs)
                 events += SystemEvent(
                     SystemEvent.Type.WEIGHT, "Body Transformation",
-                    "You have lost $after kg in total. XP +${xp.gained}.",
+                    "You have lost $after kg in total. XP +${xp.gained}, Gold +${Gold.PER_KG_LOST * kgs}.",
                     "Your body is changing. $after kilograms lost.",
                 )
                 if (xp.levelsGained > 0) events += SystemEvent(SystemEvent.Type.LEVEL_UP, "Level Up!", "You have leveled up! Level ${p.level}.", "You have leveled up.")

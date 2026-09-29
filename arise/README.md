@@ -10,8 +10,8 @@ It is a separate Android app (`dev.aoidoki.arise`, launcher name **SYSTEM**). It
 with Mayonaka/Termux in the rest of this repository and does not touch it.
 
 ```
-   void     #05070D     system blue  #1EA7FF     cyan  #6FE3FF
-   penalty  #FF2A3D     monarch      #8B5CF6     gold  #FBBF24
+   void     #050608     system cyan  #00D2FF     deep blue  #00A2FF
+   penalty  #FF0055     label        #A0AEC0     gold       #FFC857
 ```
 
 ---
@@ -30,15 +30,13 @@ the committed `arise.jks`, so new versions install over old ones without losing 
 ## First launch — the Awakening
 
 1. **The notification.** *You have acquired the qualifications to be a Player. Will you accept?*
-2. **Registration.** Name, age, height, weight, goal weight (kg/cm or lb/ft). Goals below a healthy
-   BMI (18.5) are raised to it.
-3. **Tell the System who you are.** A free-text box and an unlimited list of stats **you name
-   yourself** — `max push-ups: 22`, `plank: 1:30`, `5k: 34 min`, `left knee: old ACL tear`,
-   `sleep: 6h`. No dropdowns, no presets. The System reads them (and the AI reads them better).
-4. **Permissions.** Physical activity (steps), notifications, Health Connect (Samsung Health,
-   Galaxy Watch, smart scales), and "never sleep" (battery optimisation exemption).
-5. **The Core.** Download the on-device AI now (Wi-Fi, background) or later.
-6. **Arise.** Your first Daily Quest arrives immediately.
+2. **Player registration** — one screen. Name, age, height, weight, goal weight (kg/cm or lb/ft).
+   Goals below a healthy BMI (18.5) are raised to it.
+3. **In your own words** (optional, on the same screen). A free-text box and an unlimited list of
+   stats **you name yourself** — `max push-ups: 22`, `plank: 1:30`, `left knee: old ACL tear`.
+   No dropdowns, no presets. The System reads them (and the AI reads them better).
+4. **Arise.** You land on the Quest window; your first Daily Quest is already there. Permissions
+   are asked when they're needed, and the Core (on-device AI) is downloaded from Settings.
 
 Then do the **Assessment** on the Train tab: max push-ups, squats in 2 minutes, sit-ups in 1
 minute, max plank — all counted by the tracker. It calibrates every quest after it.
@@ -47,17 +45,18 @@ minute, max plank — all counted by the tracker. It calibrates every quest afte
 
 | | |
 |---|---|
-| **Stats** | STR, AGI, VIT, SEN, INT — seeded from your measured numbers and your own words. +3 ability points per level (allocate them on the Status window), +2 every 7-day streak. |
+| **Stats** | Strength, Agility, Vitality, Perception, Intelligence — seeded from your measured numbers and your own words. +3 ability points per level (allocate them on the Status window), +2 every 7-day streak. |
 | **HP** | 100 + 10×VIT + 5/level. Failing quests costs HP. Clearing a quest (or levelling up) fully restores it. **HP 0 = you die**: reborn one level lower, streak gone. |
 | **MP** | 30 + 8×INT. Earned by meditation. Spend 30 MP to **reroll** today's quest. |
 | **Fatigue** | Rises with work, falls with sleep (read from Health Connect). At 70+ the System issues a *Recovery Protocol* instead. |
 | **Level** | `80 + 70×level` XP to the next. Every daily quest completed ≈ level 12 in a month, 30 in six months, 50 in a year. Weight milestones (every kg lost) pay 120 XP each. |
 | **Titles** | Earned, never picked: *Wolf Slayer* (7-day streak), *The One Who Overcame Adversity* (survived a penalty), *The First Step*, *Iron Body* (−5 kg), *Demon Hunter* (goal reached), *Relentless*, *Reborn*, *Shadow Monarch*. |
+| **Gold** | Daily Quest cleared: 20 + 5 per rank. Every 7th streak day: +50. Penalty survived: +15. Each kg lost: +30. Rank-Up Trial: 100 + 50 per rank. |
 | **Job** | None → Hunter (B) → Necromancer (A/S) → **Shadow Monarch** (National Level). |
 
 ### The Daily Quest
 
-*Preparations to Become Powerful* — steps, push-ups, sit-ups, squats, and from D-rank on plank and
+*Preparing to Become Stronger* — steps, push-ups, sit-ups, squats, and from D-rank on plank and
 brisk walking. Targets come from your baselines, your rank and last week's completion rate, and
 are clamped by the safety rails (below). Everything is tracked automatically:
 
@@ -70,6 +69,20 @@ are clamped by the safety rails (below). Everything is tracked automatically:
 | Sleep | Health Connect sleep sessions |
 
 "Log by hand" exists for when tracking can't work — it counts, at half XP.
+
+Tap an objective to train it, hold it to log by hand.
+
+### Inventory and Shop
+
+The **Items** tab: a 16-slot inventory and the Shop, paid for in gold. Tap a slot for its card.
+
+| Item | Rarity | Price | Effect |
+|---|---|---|---|
+| Healing Potion | Common | 60 | +30% HP |
+| Mana Crystal | Common | 60 | +30 MP |
+| Stamina Tonic | Rare | 120 | −40 Fatigue |
+| Ward of Continuity | Epic | 400 | Your streak survives the next failed Daily Quest. The penalty still happens. |
+| Elixir of Life | Legendary | 1,000 | Full HP/MP, cures Weakened |
 
 ### The Penalty Zone
 

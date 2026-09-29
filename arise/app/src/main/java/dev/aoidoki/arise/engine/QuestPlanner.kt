@@ -51,7 +51,7 @@ object QuestPlanner {
                 add(ObjectivePlan(ObjectiveType.BRISK_MIN, roundTo(20 * m, 5)))
             }
         }
-        val title = if (tired) "Daily Quest: Recovery Protocol" else "Daily Quest: Preparations to Become Powerful"
+        val title = if (tired) "Daily Quest: Recovery Protocol" else "Daily Quest: Preparing to Become Stronger"
         val flavor = when {
             tired -> "The System has detected accumulated fatigue. Today's load has been reduced. Recovery is also training."
             ctx.recentCompletion > 0.85 -> "Your consistency has been recorded. The System raises the bar."

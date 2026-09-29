@@ -26,17 +26,16 @@ import dev.aoidoki.arise.engine.RankEngine
 import dev.aoidoki.arise.engine.SystemEvent
 import dev.aoidoki.arise.ui.components.StaticUi
 import dev.aoidoki.arise.ui.components.SystemBackground
-import dev.aoidoki.arise.ui.screens.BodyStep
-import dev.aoidoki.arise.ui.screens.CoreStep
+import dev.aoidoki.arise.engine.Item
 import dev.aoidoki.arise.ui.screens.IntroStep
+import dev.aoidoki.arise.ui.screens.InventoryScreen
 import dev.aoidoki.arise.ui.screens.LogScreen
-import dev.aoidoki.arise.ui.screens.PermissionsStep
 import dev.aoidoki.arise.ui.screens.ProfileForm
 import dev.aoidoki.arise.ui.screens.QuestScreen
 import dev.aoidoki.arise.ui.screens.RankScreen
 import dev.aoidoki.arise.ui.screens.StatusScreen
 import dev.aoidoki.arise.ui.screens.TrainScreen
-import dev.aoidoki.arise.ui.screens.WordsStep
+import dev.aoidoki.arise.ui.screens.RegistrationStep
 import dev.aoidoki.arise.ui.theme.AriseTheme
 import org.junit.Before
 import org.junit.Rule
@@ -67,7 +66,7 @@ class ScreenshotTest {
         PlayerEntity(
             name = "Jinwoo", age = 24, heightCm = 180.0, weightKg = 88.4, startWeightKg = 92.0, goalWeightKg = 78.0,
             level = 7, xp = 410, freePoints = 3, str = 14, agi = 12, vit = 13, sen = 11, intel = 12,
-            rank = Rank.D, title = "Wolf Slayer", titles = listOf("Wolf Slayer", "The First Step"),
+            rank = Rank.D, title = "Wolf Slayer", gold = 1240, titles = listOf("Wolf Slayer", "The First Step"),
             streak = 9, bestStreak = 9, questsCompleted = 12, questsFailed = 2, fatigue = 35,
             baselines = Baselines(pushups = 18, squats = 34, situps = 20, plankSec = 55, avgSteps = 6500, assessedDay = today - 3),
             limitations = Limitations(kneeCare = true, noJumping = true, notes = listOf("Knee care: squat volume halved, no jumping.")),
@@ -83,7 +82,7 @@ class ScreenshotTest {
         )
 
     private val daily = quest(
-        QuestKind.DAILY, "Daily Quest: Preparations to Become Powerful", "The Daily Quest has arrived. Complete every objective before midnight.",
+        QuestKind.DAILY, "Daily Quest: Preparing to Become Stronger", "The Daily Quest has arrived. Complete every objective before midnight.",
         Triple(ObjectiveType.STEPS, 8000, 6120), Triple(ObjectiveType.PUSHUPS, 40, 40), Triple(ObjectiveType.SITUPS, 40, 25),
         Triple(ObjectiveType.SQUATS, 25, 0), Triple(ObjectiveType.BRISK_MIN, 25, 12),
     )
@@ -125,26 +124,33 @@ class ScreenshotTest {
     fun intro() = shot("01_awakening") { IntroStep {} }
 
     @Test
-    fun body() = shot("02_registration") {
-        BodyStep(ProfileForm(name = "Jinwoo", age = "24", height = "180", weight = "92", goal = "78")) {}
+    fun registration() = shot("02_registration") {
+        RegistrationStep(ProfileForm(name = "Jinwoo", age = "24", height = "180", weight = "92", goal = "78")) {}
     }
 
     @Test
-    fun words() = shot("03_own_words") {
-        WordsStep(
+    fun registrationWords() = shot("03_own_words") {
+        RegistrationStep(
             ProfileForm(
+                name = "Jinwoo", age = "24", height = "180", weight = "92", goal = "78",
                 about = "Desk job, used to play football. Left knee clicks when I squat deep. I can do about 15 push-ups.",
-                stats = listOf("max push-ups" to "15", "plank" to "0:50", "daily steps" to "~4,000", "left knee" to "old ACL tear"),
+                stats = listOf("max push-ups" to "15", "plank" to "0:50", "left knee" to "old ACL tear"),
             ),
-            {}, {},
-        )
+        ) {}
     }
 
     @Test
-    fun permissions() = shot("04_permissions") { PermissionsStep(perms) {} }
+    fun inventory() = shot("16_inventory") {
+        InventoryScreen(state.copy(inventory = mapOf("healing_potion" to 3, "mana_crystal" to 1, "streak_ward" to 1)), {}, {})
+    }
 
     @Test
-    fun core() = shot("05_core") { CoreStep(state, {}, {}) }
+    fun shop() = shot("17_shop") { InventoryScreen(state, {}, {}, startInShop = true) }
+
+    @Test
+    fun itemCard() = shot("18_item_card") {
+        InventoryScreen(state.copy(inventory = mapOf("elixir_of_life" to 1)), {}, {}, openItem = Item.ELIXIR_OF_LIFE)
+    }
 
     @Test
     fun status() = shot("10_status") { StatusScreen(state, {}, {}, {}) }

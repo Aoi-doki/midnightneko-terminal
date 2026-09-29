@@ -15,30 +15,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import dev.aoidoki.arise.R
 
+/** The System's palette: one accent, one alarm, white and silver. Everything else is darkness. */
 object Palette {
-    val Void = Color(0xFF05070D)
-    val Abyss = Color(0xFF081223)
-    val Panel = Color(0xE60A1628)
-    val PanelSolid = Color(0xFF0A1628)
-    val Line = Color(0xFF16304F)
-    val Blue = Color(0xFF1EA7FF)
-    val Cyan = Color(0xFF6FE3FF)
-    val Ice = Color(0xFFE6F7FF)
-    val Muted = Color(0xFF7C93B5)
-    val Dim = Color(0xFF3D5270)
-    val Red = Color(0xFFFF2A3D)
-    val RedGlow = Color(0xFFFF5566)
-    val RedAbyss = Color(0xFF1A0306)
-    val Violet = Color(0xFF8B5CF6)
-    val Gold = Color(0xFFFBBF24)
-    val Hp = Color(0xFFFF4D6D)
-    val Mp = Color(0xFF3B82F6)
-    val Fatigue = Color(0xFFF59E0B)
-    val Xp = Color(0xFF6FE3FF)
-    val Good = Color(0xFF4ADE80)
+    val Void = Color(0xFF050608)
+    val Charcoal = Color(0xFF0B0D12)
+    val Smoke = Color(0xFF121822)
+    val PaneFill = Color(0xE00A0E14)
+    val Hairline = Color(0xFF1B2430)
+
+    val Cyan = Color(0xFF00D2FF)
+    val CyanDeep = Color(0xFF00A2FF)
+    val Crimson = Color(0xFFFF0055)
+    val White = Color(0xFFFFFFFF)
+    val Silver = Color(0xFFA0AEC0)
+    val Dim = Color(0xFF5A6678)
+
+    // Data colours, used only inside meters and badges.
+    val Hp = Color(0xFFFF3D71)
+    val Mp = Color(0xFF00A2FF)
+    val Fatigue = Color(0xFFFFB547)
+    val Good = Color(0xFF3DDC97)
+    val Gold = Color(0xFFFFC857)
+    val Violet = Color(0xFFB06BFF)
+
+    // Kept for call sites that predate the remake.
+    val Blue = CyanDeep
+    val Ice = White
+    val Muted = Silver
+    val Red = Crimson
+    val RedGlow = Color(0xFFFF4D85)
+    val Abyss = Smoke
+    val PanelSolid = Charcoal
+    val Line = Hairline
+    val Xp = Cyan
 }
 
-/** The System's colours for the current mode. The Penalty Zone swaps the whole UI to red. */
+/** The System's colours for the current mode. The Penalty Zone swaps the accent to crimson. */
 @Immutable
 data class SysColors(
     val accent: Color,
@@ -48,57 +60,78 @@ data class SysColors(
     val panel: Color,
     val background: Color,
     val backgroundGlow: Color,
+    val hairline: Color,
     val penalty: Boolean,
 )
 
 val NormalColors = SysColors(
-    accent = Palette.Blue,
-    accentSoft = Palette.Cyan,
-    text = Palette.Ice,
-    muted = Palette.Muted,
-    panel = Palette.Panel,
+    accent = Palette.Cyan,
+    accentSoft = Palette.CyanDeep,
+    text = Palette.White,
+    muted = Palette.Silver,
+    panel = Palette.PaneFill,
     background = Palette.Void,
-    backgroundGlow = Palette.Abyss,
+    backgroundGlow = Palette.Smoke,
+    hairline = Palette.Hairline,
     penalty = false,
 )
 
 val PenaltyColors = SysColors(
-    accent = Palette.Red,
-    accentSoft = Palette.RedGlow,
-    text = Color(0xFFFFE6E8),
-    muted = Color(0xFFB57C84),
-    panel = Color(0xE6200A0E),
-    background = Color(0xFF0A0204),
-    backgroundGlow = Palette.RedAbyss,
+    accent = Palette.Crimson,
+    accentSoft = Color(0xFFFF4D85),
+    text = Palette.White,
+    muted = Color(0xFFC2A3AE),
+    panel = Color(0xE0140609),
+    background = Color(0xFF070203),
+    backgroundGlow = Color(0xFF1E070D),
+    hairline = Color(0xFF3A1320),
     penalty = true,
 )
 
 val LocalSys = staticCompositionLocalOf { NormalColors }
 
 object Fonts {
+    /** Angular display face for the few big things: level, rank, screen titles. */
     val Display = FontFamily(
         Font(R.font.rajdhani_medium, FontWeight.Medium),
         Font(R.font.rajdhani_semibold, FontWeight.SemiBold),
         Font(R.font.rajdhani_bold, FontWeight.Bold),
     )
+
     @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
     val Body = FontFamily(
         Font(R.font.exo2, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
         Font(R.font.exo2, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
         Font(R.font.exo2, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
-        Font(R.font.exo2, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+    )
+
+    /** System-log monospace: every number, every label, every readout. */
+    @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+    val Mono = FontFamily(
+        Font(R.font.jbmono, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+        Font(R.font.jbmono, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+        Font(R.font.jbmono, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+        Font(R.font.jbmono, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
     )
 }
 
+/**
+ * One size ramp. Uppercase is reserved for [Label] (the small system-log tags); everything a person
+ * reads as a sentence stays in sentence case.
+ */
 object SysType {
-    val Huge = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.Bold, fontSize = 64.sp, letterSpacing = 2.sp)
-    val Title = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.Bold, fontSize = 26.sp, letterSpacing = 3.sp)
-    val Header = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, letterSpacing = 4.sp)
-    val Label = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 1.5.sp)
-    val Stat = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.Bold, fontSize = 22.sp, letterSpacing = 1.sp)
-    val Body = TextStyle(fontFamily = Fonts.Body, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp)
-    val Small = TextStyle(fontFamily = Fonts.Body, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 17.sp)
-    val Mono = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.Medium, fontSize = 14.sp, letterSpacing = 1.sp)
+    val Huge = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.Bold, fontSize = 56.sp, lineHeight = 56.sp)
+    val Title = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 28.sp)
+    val Header = TextStyle(fontFamily = Fonts.Display, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 22.sp)
+    val Body = TextStyle(fontFamily = Fonts.Body, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp)
+    val BodyStrong = TextStyle(fontFamily = Fonts.Body, fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 20.sp)
+    val Small = TextStyle(fontFamily = Fonts.Body, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp)
+    /** The system-log tag: tiny, monospace, tracked, uppercase. */
+    val Label = TextStyle(fontFamily = Fonts.Mono, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 1.2.sp)
+    val Num = TextStyle(fontFamily = Fonts.Mono, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 18.sp)
+    val NumLarge = TextStyle(fontFamily = Fonts.Mono, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 26.sp)
+    val Mono = Num
+    val Stat = NumLarge
 }
 
 @Composable
@@ -107,15 +140,15 @@ fun AriseTheme(penalty: Boolean = false, content: @Composable () -> Unit) {
     val scheme = darkColorScheme(
         primary = sys.accent,
         onPrimary = Palette.Void,
-        secondary = Palette.Violet,
+        secondary = Palette.CyanDeep,
         background = sys.background,
         onBackground = sys.text,
-        surface = Palette.PanelSolid,
+        surface = Palette.Charcoal,
         onSurface = sys.text,
-        surfaceVariant = Palette.Abyss,
+        surfaceVariant = Palette.Smoke,
         onSurfaceVariant = sys.muted,
-        error = Palette.Red,
-        outline = Palette.Line,
+        error = Palette.Crimson,
+        outline = sys.hairline,
     )
     CompositionLocalProvider(LocalSys provides sys) {
         MaterialTheme(colorScheme = scheme, content = content)

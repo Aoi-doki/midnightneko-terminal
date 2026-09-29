@@ -36,6 +36,7 @@ import dev.aoidoki.arise.data.WeightEntity
 import dev.aoidoki.arise.ui.UiState
 import dev.aoidoki.arise.ui.components.GlowButton
 import dev.aoidoki.arise.ui.components.SysField
+import dev.aoidoki.arise.ui.components.Pane
 import dev.aoidoki.arise.ui.components.SystemWindow
 import dev.aoidoki.arise.ui.theme.LocalSys
 import dev.aoidoki.arise.ui.theme.Palette
@@ -55,9 +56,10 @@ fun LogScreen(state: UiState, onAddWeight: (Double) -> Unit) {
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SystemWindow(title = "Body Transformation") {
+        Pane(label = "Body Transformation") {
             WeightChart(state.weights, p.goalWeightKg, imperial)
             Spacer(Modifier.height(10.dp))
             val latest = state.weights.lastOrNull()
@@ -71,8 +73,8 @@ fun LogScreen(state: UiState, onAddWeight: (Double) -> Unit) {
             GlowButton("Log weight", { adding = true }, Modifier.fillMaxWidth())
             Text("Weigh-ins from a smart scale or Samsung Health arrive through Health Connect automatically.", style = SysType.Small.copy(color = sys.muted.copy(alpha = 0.7f)))
         }
-        SystemWindow(title = "Last 14 Days") { DayStrip(state.days.take(14).reversed(), state.today) }
-        SystemWindow(title = "System Log") {
+        Pane(label = "Last 14 Days") { DayStrip(state.days.take(14).reversed(), state.today) }
+        Pane(label = "System Log") {
             if (state.log.isEmpty()) Text("No messages yet.", style = SysType.Small.copy(color = sys.muted))
             state.log.take(60).forEach { EventRow(it) }
         }

@@ -1,5 +1,6 @@
 package dev.aoidoki.arise.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,7 @@ import dev.aoidoki.arise.ui.UiState
 import dev.aoidoki.arise.ui.components.GlowButton
 import dev.aoidoki.arise.ui.components.RankBadge
 import dev.aoidoki.arise.ui.components.StatBar
+import dev.aoidoki.arise.ui.components.Pane
 import dev.aoidoki.arise.ui.components.SystemWindow
 import dev.aoidoki.arise.ui.components.TypewriterText
 import dev.aoidoki.arise.ui.theme.LocalSys
@@ -38,9 +40,10 @@ fun RankScreen(state: UiState, onAcceptTrial: () -> Unit, onEvaluate: () -> Unit
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SystemWindow(title = "Hunter Association") {
+        Pane(label = "Hunter Association") {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 RankBadge(p.rank, size = 120.dp)
                 Spacer(Modifier.height(8.dp))
@@ -74,10 +77,10 @@ fun RankScreen(state: UiState, onAcceptTrial: () -> Unit, onEvaluate: () -> Unit
         val trial = state.trial
         val trialRank = state.trialRank
         when {
-            trial != null -> SystemWindow(title = "Trial in Progress", accent = Palette.Violet) {
+            trial != null -> Pane(label = "Trial in Progress", accent = Palette.Violet) {
                 Text("${trial.quest.title}. See the Quest tab.", style = SysType.Body.copy(color = sys.text))
             }
-            trialRank != null -> SystemWindow(title = "Rank-Up Available", accent = Palette.Gold, icon = "★") {
+            trialRank != null -> Pane(label = "Rank-Up Available", accent = Palette.Gold) {
                 TypewriterText(
                     "You qualify for promotion to ${trialRank.displayName}. Accepting issues a one-day Rank-Up Trial " +
                         "(today if before noon, otherwise tomorrow). Fail, and you may retry in 3 days.",
@@ -87,7 +90,7 @@ fun RankScreen(state: UiState, onAcceptTrial: () -> Unit, onEvaluate: () -> Unit
                 GlowButton("Accept the trial", onAcceptTrial, Modifier.fillMaxWidth(), accent = Palette.Gold, filled = true, enabled = state.aiBusy == null)
                 state.aiBusy?.let { Text(it, style = SysType.Small.copy(color = Palette.Violet), modifier = Modifier.padding(top = 6.dp)) }
             }
-            next != null -> SystemWindow(title = "Next: ${next.displayName}") {
+            next != null -> Pane(label = "Next: ${next.displayName}") {
                 val pw = power?.total ?: 0
                 KeyValue("Hunter Power", "$pw / ${next.minPower}", if (pw >= next.minPower) Palette.Good else sys.text)
                 KeyValue("Level", "${p.level} / ${next.minLevel}", if (p.level >= next.minLevel) Palette.Good else sys.text)
@@ -95,7 +98,7 @@ fun RankScreen(state: UiState, onAcceptTrial: () -> Unit, onEvaluate: () -> Unit
             }
         }
 
-        SystemWindow(title = "Evaluation", accent = Palette.Violet) {
+        Pane(label = "Evaluation", accent = Palette.Violet) {
             state.evaluation?.let {
                 TypewriterText(it, SysType.Body.copy(color = sys.text))
                 Spacer(Modifier.height(10.dp))
@@ -103,7 +106,7 @@ fun RankScreen(state: UiState, onAcceptTrial: () -> Unit, onEvaluate: () -> Unit
             GlowButton("Request evaluation", onEvaluate, Modifier.fillMaxWidth(), accent = Palette.Violet, enabled = state.aiBusy == null)
         }
 
-        SystemWindow(title = "Ranks") {
+        Pane(label = "Ranks") {
             Rank.entries.forEach { r ->
                 val reached = r.ordinal <= p.rank.ordinal
                 Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -1,6 +1,7 @@
 package dev.aoidoki.arise.data
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Insert
@@ -50,6 +51,18 @@ interface PlayerDao {
 
     @Insert
     suspend fun insertCustomStats(stats: List<CustomStatEntity>)
+
+    @Query("SELECT * FROM inventory WHERE count > 0")
+    fun observeInventory(): Flow<List<InventoryEntity>>
+
+    @Query("SELECT * FROM inventory WHERE itemId = :id")
+    suspend fun inventoryItem(id: String): InventoryEntity?
+
+    @Upsert
+    suspend fun saveInventory(item: InventoryEntity)
+
+    @Query("SELECT * FROM inventory")
+    suspend fun inventory(): List<InventoryEntity>
 
     @Transaction
     suspend fun replaceCustomStats(stats: List<CustomStatEntity>) {
@@ -176,6 +189,8 @@ interface MaintenanceDao {
     @Query("DELETE FROM weight") suspend fun clearWeights()
     @Query("DELETE FROM event") suspend fun clearEvents()
     @Query("DELETE FROM custom_stat") suspend fun clearCustom()
+    @Query("DELETE FROM inventory") suspend fun clearInventory()
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertInventory(i: List<InventoryEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertPlayer(p: PlayerEntity)
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertCustom(s: List<CustomStatEntity>)
@@ -187,17 +202,18 @@ interface MaintenanceDao {
 
     @Transaction
     suspend fun wipe() {
-        clearQuests(); clearDays(); clearWeights(); clearEvents(); clearCustom(); clearPlayer()
+        clearQuests(); clearDays(); clearWeights(); clearEvents(); clearCustom(); clearInventory(); clearPlayer()
     }
 }
 
 @Database(
     entities = [
         PlayerEntity::class, CustomStatEntity::class, QuestEntity::class, ObjectiveEntity::class,
-        DayLogEntity::class, WeightEntity::class, EventEntity::class,
+        DayLogEntity::class, WeightEntity::class, EventEntity::class, InventoryEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @TypeConverters(Converters::class)
 abstract class AriseDatabase : RoomDatabase() {

@@ -46,6 +46,7 @@ data class UiState(
     val days: List<DayLogEntity> = emptyList(),
     val weights: List<WeightEntity> = emptyList(),
     val log: List<EventEntity> = emptyList(),
+    val inventory: Map<String, Int> = emptyMap(),
     val settings: AppSettings = AppSettings(),
     val power: RankEngine.Power? = null,
     val trialRank: Rank? = null,
@@ -76,7 +77,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         listOf(
             g.game.observePlayer(), g.game.observeCustomStats(), g.game.observeActiveQuests(), g.game.observeToday(),
             g.game.observeDays(), g.game.observeWeights(), g.game.observeEventLog(), g.settings.flow,
-            g.models.state, g.ai.busy, extra,
+            g.models.state, g.ai.busy, extra, g.game.observeInventory(),
         ),
     ) { v ->
         val e = v[10] as Extra
@@ -96,6 +97,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             trialRank = e.trial,
             evaluation = e.evaluation,
             now = e.now,
+            inventory = (v[11] as List<dev.aoidoki.arise.data.InventoryEntity>).associate { it.itemId to it.count },
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, UiState())
 
@@ -143,6 +145,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         refreshPower()
         if (reassess) AiDirector.enqueue(getApplication(), "assess")
     }
+
+    fun buy(item: dev.aoidoki.arise.engine.Item) = viewModelScope.launch { g.game.buy(item) }
+    fun use(item: dev.aoidoki.arise.engine.Item) = viewModelScope.launch { g.game.use(item) }
 
     fun allocate(s: StatType) = viewModelScope.launch { g.game.allocate(s); refreshPower() }
     fun equipTitle(t: String) = viewModelScope.launch { g.game.equipTitle(t) }
