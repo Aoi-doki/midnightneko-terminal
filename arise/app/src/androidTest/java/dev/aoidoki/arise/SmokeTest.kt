@@ -2,7 +2,11 @@ package dev.aoidoki.arise
 
 import android.Manifest
 import android.app.ActivityManager
+import android.app.UiAutomation
+import android.content.Intent
 import android.graphics.Bitmap
+import android.os.ParcelFileDescriptor
+import android.provider.Settings
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -16,6 +20,8 @@ import dev.aoidoki.arise.engine.Game
 import dev.aoidoki.arise.engine.ObjectiveType
 import dev.aoidoki.arise.engine.QuestKind
 import dev.aoidoki.arise.engine.QuestStatus
+import dev.aoidoki.arise.lock.PenaltyLock
+import dev.aoidoki.arise.lock.PenaltyLockService
 import dev.aoidoki.arise.sense.StepTrackerService
 import dev.aoidoki.arise.ui.components.StaticUi
 import dev.aoidoki.arise.voice.Chime
@@ -47,6 +53,13 @@ class SmokeTest {
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as AriseApp
     private val graph get() = app.graph
 
+    /**
+     * Connected so it does not suppress other accessibility services: the default connection
+     * would switch off the Penalty Lock for the whole run.
+     */
+    private val uia: UiAutomation
+        get() = InstrumentationRegistry.getInstrumentation().getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+
     @Before
     fun setUp() {
         StaticUi.enabled = true
@@ -59,7 +72,7 @@ class SmokeTest {
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
-        val bmp = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
+        val bmp = uia.takeScreenshot() ?: return
         val dir = File(app.getExternalFilesDir(null), "screens").apply { mkdirs() }
         File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 90, it) }
     }
@@ -145,5 +158,46 @@ class SmokeTest {
         assertNotNull("step tracker not running", service)
         assertTrue("step tracker not in foreground", service!!.foreground)
         screenshot("07_final")
+    }
+
+    /** The Penalty Lock covers another app for real, and the override code lifts it. */
+    @Test
+    fun penaltyLockCoversAppsUntilOverridden() {
+        val component = "${app.packageName}/${PenaltyLockService::class.java.name}"
+        // Drain the output: closing the pipe early can cut the command off.
+        fun shell(cmd: String): String =
+            ParcelFileDescriptor.AutoCloseInputStream(uia.executeShellCommand(cmd)).use { it.readBytes().decodeToString() }
+        fun waitFor(ms: Long, cond: () -> Boolean): Boolean {
+            val end = System.currentTimeMillis() + ms
+            while (System.currentTimeMillis() < end) {
+                if (cond()) return true
+                Thread.sleep(200)
+            }
+            return cond()
+        }
+        try {
+            runBlocking {
+                graph.lock.setCode("482913")
+                assertEquals(PenaltyLock.Attempt.Accepted, graph.lock.setEnabled(true))
+            }
+            shell("settings put secure enabled_accessibility_services $component")
+            shell("settings put secure accessibility_enabled 1")
+            val enabled = shell("settings get secure enabled_accessibility_services").trim()
+            assertTrue("lock service never bound (enabled: $enabled)", waitFor(30_000) { PenaltyLockService.running.value })
+
+            runBlocking { graph.lock.test() }
+            app.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            assertTrue("the lock screen never covered Settings", waitFor(15_000) { PenaltyLockService.covering.value })
+            screenshot("08_penalty_lock")
+
+            assertTrue(runBlocking { graph.lock.override("000000") } is PenaltyLock.Attempt.Wrong)
+            assertTrue(PenaltyLockService.covering.value)
+            assertEquals(PenaltyLock.Attempt.Accepted, runBlocking { graph.lock.override("482913") })
+            assertTrue("the override didn't lift the lock", waitFor(10_000) { !PenaltyLockService.covering.value })
+            screenshot("09_lock_lifted")
+        } finally {
+            runBlocking { graph.lock.setEnabled(false, "482913") }
+            shell("settings delete secure enabled_accessibility_services")
+        }
     }
 }

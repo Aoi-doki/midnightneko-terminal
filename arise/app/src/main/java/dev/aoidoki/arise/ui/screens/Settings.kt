@@ -84,19 +84,46 @@ fun SettingsScreen(vm: MainViewModel, state: UiState, perms: Perms) {
                 style = SysType.Small.copy(color = LocalSys.current.muted),
             )
         }
+        val lockState by vm.lockState.collectAsState()
+        val lockService by vm.lockService.collectAsState()
+        LockPane(
+            lock = state.settings.lock,
+            engaged = lockState.engaged,
+            serviceOn = lockService,
+            c = LockControls(
+                setCode = vm::setLockCode,
+                setEnabled = vm::setLockEnabled,
+                test = { vm.testLock() },
+                openAccessibility = {
+                    runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                },
+                openAppInfo = {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+                        )
+                    }
+                },
+                installedApps = vm::installedApps,
+                setAllow = { vm.setLockAllow(it) },
+            ),
+        )
         Pane(label = "Save Data") {
             Text("Your progress lives only on this phone. Export it before switching phones or reinstalling.", style = SysType.Small.copy(color = LocalSys.current.muted))
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlowButton("Export", { exportSave.launch("arise-save.json") }, Modifier.weight(1f))
-                GlowButton("Import", { importSave.launch(arrayOf("application/json", "*/*")) }, Modifier.weight(1f))
+                GlowButton("Import", { if (!lockState.engaged) importSave.launch(arrayOf("application/json", "*/*")) }, Modifier.weight(1f))
             }
             Spacer(Modifier.height(12.dp))
             var confirm by remember { mutableStateOf(0) }
             GlowButton(
                 when (confirm) { 0 -> "Erase everything"; 1 -> "Tap again to erase"; else -> "Erasing…" },
-                { confirm++; if (confirm >= 2) vm.wipe() }, Modifier.fillMaxWidth(), accent = Palette.Red,
+                { if (!lockState.engaged) { confirm++; if (confirm >= 2) vm.wipe() } }, Modifier.fillMaxWidth(), accent = Palette.Red,
             )
+            if (lockState.engaged) {
+                Text("Not while the Penalty Lock is engaged.", style = SysType.Small.copy(color = Palette.Crimson), modifier = Modifier.padding(top = 6.dp))
+            }
         }
         if (BuildConfig.DEBUG) {
             Pane(label = "Debug", accent = Palette.Gold) {

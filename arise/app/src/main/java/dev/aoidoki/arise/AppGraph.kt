@@ -12,6 +12,7 @@ import dev.aoidoki.arise.data.AriseDatabase
 import dev.aoidoki.arise.data.SettingsStore
 import dev.aoidoki.arise.engine.Game
 import dev.aoidoki.arise.engine.SystemEvent
+import dev.aoidoki.arise.lock.PenaltyLock
 import dev.aoidoki.arise.sense.HealthRepo
 import dev.aoidoki.arise.sense.StepTrackerService
 import dev.aoidoki.arise.voice.Lines
@@ -36,6 +37,7 @@ class AppGraph(private val context: Context) {
     val models by lazy { ModelManager(context) }
     val llm by lazy { LlmEngine(context) }
     val ai by lazy { AiDirector(context, models, llm, game, settings) }
+    val lock by lazy { PenaltyLock(settings, game, time, scope) }
 
     fun start() {
         Notifications.createChannels(context)

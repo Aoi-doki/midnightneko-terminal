@@ -72,6 +72,10 @@ data class PlayerEntity(
     @ColumnInfo(defaultValue = "0") val gold: Int = 0,
     /** Ward of Continuity charges: each keeps the streak through one failed Daily Quest. */
     @ColumnInfo(defaultValue = "0") val streakWards: Int = 0,
+
+    // v3: the Penalty Lock.
+    /** Times the override code was used to lift a Penalty Lock. */
+    @ColumnInfo(defaultValue = "0") val overrides: Int = 0,
 )
 
 /** A stat the player defined themselves, in their own words: "max push-ups" → "22", "left knee" → "old ACL tear". */

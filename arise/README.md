@@ -101,6 +101,37 @@ it never skips or doubles it. A long absence costs a single penalty, not one per
 **Recovery day** (4 per month): sick, injured, resting. Today's quest isn't penalised and any open
 Penalty Zone moves to tomorrow.
 
+### The Penalty Lock (optional)
+
+Off by default. Turn it on in **Settings → Penalty Lock** and, while a Penalty Quest's window is
+open, the phone is locked until you've walked it off.
+
+- **Still usable:** Phone, Messages, emergency calls, alarms, SYSTEM itself (to watch the penalty
+  progress), and any apps you add under *Allowed apps*, such as Maps or music for the walk. Settings
+  and the home screen are covered. The lock never draws over the lock screen, so unlocking the
+  phone and emergency calls from the lock screen always work.
+- **It lifts by itself** once the steps are done or the window closes, which is at most a few
+  hours and never before 07:00.
+- **Override code:** you choose it (6+ digits) when you turn the lock on, and you get a one-time
+  **recovery code** to write down. Either one lifts the lock immediately. The Penalty Quest keeps
+  running and still has to be walked, and the override is recorded (*Overrides* on the Status
+  window). Five wrong entries start a wait that doubles each time.
+- **Turning it off** during an engaged lock needs the code. At any other time you can turn it off
+  freely.
+- **Test lock · 30 s** in Settings shows you the lock screen and lets you practise the override.
+
+**How it works.** It's an Android accessibility service, "SYSTEM Penalty Lock". It is told which
+app is in front and nothing else: it can't read the screen, and nothing leaves the phone.
+
+**Turning it on:**
+1. Settings → Accessibility → Installed apps → **SYSTEM Penalty Lock** → on.
+2. Because SYSTEM is sideloaded, Android 13+ first shows *"Restricted setting"*. Go to App info
+   (the button in the pane) → **⋮** → **Allow restricted settings**, then step 1 works.
+3. On Samsung, keep SYSTEM in *Never sleeping apps* so One UI doesn't stop the service.
+
+A reboot re-arms the lock. The only way around it without the code is Android's safe mode, which
+disables all downloaded apps. It's there as the last resort.
+
 ### Ranks
 
 **Hunter Power** (0–100) is four equal parts, all age-adjusted:

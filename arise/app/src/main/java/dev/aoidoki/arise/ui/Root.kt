@@ -89,6 +89,7 @@ fun MainShell(vm: MainViewModel, state: UiState, perms: Perms) {
     // The quest is the reason to open the app, so it's home.
     var tab by rememberSaveable { mutableIntStateOf(Tab.QUEST.ordinal) }
     var trainType by rememberSaveable { mutableIntStateOf(ObjectiveType.PUSHUPS.ordinal) }
+    val lockService by vm.lockService.collectAsState()
     // Ask for step tracking and notifications once, in context, instead of in a permissions wall.
     LaunchedEffect(Unit) {
         if (!perms.activity) perms.request(dev.aoidoki.arise.Perm.ACTIVITY)
@@ -112,6 +113,8 @@ fun MainShell(vm: MainViewModel, state: UiState, perms: Perms) {
                         onReroll = vm::reroll,
                         onStartTracker = { perms.request(dev.aoidoki.arise.Perm.ACTIVITY) },
                         trackerGranted = perms.activity,
+                        lockUnarmed = state.settings.lock.armed && !lockService,
+                        onFixLock = { tab = Tab.SETTINGS.ordinal },
                     )
                     Tab.STATUS -> StatusScreen(state, onAllocate = vm::allocate, onTitle = vm::equipTitle, onGoQuest = { tab = Tab.QUEST.ordinal })
                     Tab.TRAIN -> TrainScreen(

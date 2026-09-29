@@ -37,6 +37,8 @@ object Lines {
         add("The trial has ended in failure. You are not yet ready.")
         add("The quest has been rewritten at the cost of mana.")
         add("You were gone. The System noticed.")
+        add("Override accepted. The quest remains. This has been recorded.")
+        add("The penalty lock is engaged. Walk.")
     }
 }
 

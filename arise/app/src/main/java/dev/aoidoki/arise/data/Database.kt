@@ -211,9 +211,9 @@ interface MaintenanceDao {
         PlayerEntity::class, CustomStatEntity::class, QuestEntity::class, ObjectiveEntity::class,
         DayLogEntity::class, WeightEntity::class, EventEntity::class, InventoryEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 @TypeConverters(Converters::class)
 abstract class AriseDatabase : RoomDatabase() {

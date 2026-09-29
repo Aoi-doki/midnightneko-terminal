@@ -28,6 +28,12 @@ import dev.aoidoki.arise.ui.components.StaticUi
 import dev.aoidoki.arise.ui.components.SystemBackground
 import dev.aoidoki.arise.engine.Item
 import dev.aoidoki.arise.ui.screens.IntroStep
+import dev.aoidoki.arise.ui.screens.LockControls
+import dev.aoidoki.arise.ui.screens.LockPane
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import dev.aoidoki.arise.ui.screens.InventoryScreen
 import dev.aoidoki.arise.ui.screens.LogScreen
 import dev.aoidoki.arise.ui.screens.ProfileForm
@@ -166,6 +172,59 @@ class ScreenshotTest {
             Triple(ObjectiveType.STEPS, 4500, 1730), startsAt = now - 3_600_000, deadline = now + 5 * 3_600_000,
         )
         shot("12_penalty_zone", penalty = true) { QuestScreen(state.copy(quests = listOf(penalty, daily)), {}, { _, _ -> }, {}, {}, {}, trackerGranted = true) }
+    }
+
+    private val penaltyQuest get() = quest(
+        QuestKind.PENALTY, "Penalty Quest: Survival", "Survive.",
+        Triple(ObjectiveType.STEPS, 4500, 1730), startsAt = now - 3_600_000, deadline = now + 3 * 3_600_000 + 1_234_000,
+    )
+
+    private val lockActions = object : dev.aoidoki.arise.lock.LockActions {
+        override fun phone() = Unit
+        override fun messages() = Unit
+        override fun openSystem() = Unit
+        override fun open(pkg: String) = Unit
+        override suspend fun override(input: String) = dev.aoidoki.arise.lock.PenaltyLock.Attempt.Accepted
+    }
+
+    private val lockControls = LockControls(
+        setCode = { "" }, setEnabled = { _, _ -> dev.aoidoki.arise.lock.PenaltyLock.Attempt.Accepted },
+        test = {}, openAccessibility = {}, openAppInfo = {}, installedApps = { emptyList() }, setAllow = {},
+    )
+
+    @Test
+    fun lockScreen() {
+        compose.setContent {
+            dev.aoidoki.arise.lock.LockScreen(
+                dev.aoidoki.arise.lock.LockState(engaged = true, quest = penaltyQuest),
+                listOf(dev.aoidoki.arise.lock.LockApp("com.spotify.music", "Spotify"), dev.aoidoki.arise.lock.LockApp("com.google.android.apps.maps", "Maps")),
+                lockActions, clock = { now },
+            )
+        }
+        compose.onRoot().captureRoboImage("src/test/screenshots/22_penalty_lock.png")
+    }
+
+    @Test
+    fun lockScreenOverride() {
+        compose.setContent {
+            dev.aoidoki.arise.lock.LockScreen(
+                dev.aoidoki.arise.lock.LockState(engaged = true, quest = penaltyQuest), emptyList(), lockActions, clock = { now }, startOverride = true,
+            )
+        }
+        compose.onRoot().captureRoboImage("src/test/screenshots/23_penalty_lock_override.png")
+    }
+
+    @Test
+    fun lockSettings() = shot("24_lock_settings") {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LockPane(dev.aoidoki.arise.data.LockSettings(enabled = true, codeHash = "x", codeSalt = "x", allow = setOf("a", "b")), engaged = false, serviceOn = false, c = lockControls)
+            LockPane(dev.aoidoki.arise.data.LockSettings(), engaged = false, serviceOn = false, c = lockControls)
+        }
+    }
+
+    @Test
+    fun lockRecovery() = shot("25_lock_recovery") {
+        LockPane(dev.aoidoki.arise.data.LockSettings(), engaged = false, serviceOn = false, c = lockControls, initialRecovery = "K7QM-2XRA-PW9D")
     }
 
     @Test

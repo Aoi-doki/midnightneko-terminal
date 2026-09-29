@@ -190,6 +190,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun stopVoice() = g.voice.stop()
     fun isSpeaking(): Boolean = g.voice.speaking.value
 
+    // ---- Penalty Lock ----
+    val lockState = g.lock.state
+    val lockService = dev.aoidoki.arise.lock.PenaltyLockService.running
+    suspend fun setLockCode(code: String): String = g.lock.setCode(code)
+    suspend fun setLockEnabled(on: Boolean, code: String) = g.lock.setEnabled(on, code)
+    fun testLock() = viewModelScope.launch { g.lock.test() }
+    fun setLockAllow(pkgs: Set<String>) = viewModelScope.launch { g.lock.setAllow(pkgs) }
+
+    /** Launchable apps the player may add to the lock's allowlist. Settings apps are left out: they'd undo the lock. */
+    fun installedApps(): List<dev.aoidoki.arise.lock.LockApp> {
+        val app = getApplication<Application>()
+        val pm = app.packageManager
+        val launcher = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        return pm.queryIntentActivities(launcher, 0)
+            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+            .filter { (pkg, _) -> pkg != app.packageName && !pkg.contains("settings") && !dev.aoidoki.arise.lock.LockPolicy.isEssential(pkg) }
+            .distinctBy { it.first }
+            .map { (pkg, label) -> dev.aoidoki.arise.lock.LockApp(pkg, label) }
+            .sortedBy { it.label.lowercase() }
+    }
+
     fun setImperial(b: Boolean) = viewModelScope.launch { g.settings.setImperial(b) }
     fun setWifiOnly(b: Boolean) = viewModelScope.launch { g.settings.setWifiOnly(b) }
     fun setAiEnabled(b: Boolean) = viewModelScope.launch { g.settings.setAiEnabled(b) }

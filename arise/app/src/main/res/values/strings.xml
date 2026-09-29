@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">SYSTEM</string>
+    <string name="lock_service_label">SYSTEM Penalty Lock</string>
+    <string name="lock_service_description">While a Penalty Quest is running, SYSTEM covers other apps until you have walked it off. Calls, messages, alarms and emergency calls stay available, and your override code unlocks it at any time. It only sees which app is open, never what is on the screen, and nothing leaves the phone.</string>
 </resources>

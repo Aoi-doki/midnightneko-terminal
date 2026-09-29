@@ -439,6 +439,7 @@ fun SysField(
     singleLine: Boolean = true,
     placeholder: String = "",
     minLines: Int = 1,
+    secret: Boolean = false,
 ) {
     val sys = LocalSys.current
     Column(modifier) {
@@ -453,7 +454,13 @@ fun SysField(
             minLines = minLines,
             textStyle = (if (numeric) SysType.Num else SysType.Body).copy(color = sys.text, fontSize = 15.sp),
             cursorBrush = SolidColor(sys.accent),
-            keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Decimal) else KeyboardOptions.Default,
+            keyboardOptions = when {
+                secret && numeric -> KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                secret -> KeyboardOptions(keyboardType = KeyboardType.Password)
+                numeric -> KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                else -> KeyboardOptions.Default
+            },
+            visualTransformation = if (secret) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Palette.Charcoal, systemShape(6.dp))
