@@ -1,0 +1,233 @@
+name: arise
+
+# ARISE (the SYSTEM app) is a standalone Gradle project in arise/. This workflow builds, tests and
+# signs it, runs its smoke tests on a real emulator, and — when asked — publishes the APK as a
+# GitHub pre-release. It never touches the Mayonaka build at the repository root.
+
+on:
+  push:
+    paths:
+      - "arise/**"
+      - ".github/workflows/arise.yml"
+  pull_request:
+    paths:
+      - "arise/**"
+      - ".github/workflows/arise.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the APK as a GitHub pre-release
+        type: boolean
+        default: false
+      version:
+        description: Version to stamp and publish (MAJOR.MINOR.PATCH)
+        default: "0.1.0"
+      prerelease:
+        description: Mark the GitHub release as a pre-release
+        type: boolean
+        default: true
+
+concurrency:
+  group: arise-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Test, lint and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: arise
+    outputs:
+      version: ${{ steps.version.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ""
+
+      - name: Install SDK packages
+        run: sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: arise-gradle-${{ runner.os }}-${{ hashFiles('arise/**/*.gradle', 'arise/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: arise-gradle-${{ runner.os }}-
+
+      - name: Work out the version
+        id: version
+        run: |
+          set -euo pipefail
+          name="${{ inputs.version || '0.1.0' }}"
+          name="${name#v}"
+          IFS=. read -r major minor patch <<< "$name"
+          if ! [[ "$major$minor$patch" =~ ^[0-9]+$ ]]; then echo "version '$name' is not MAJOR.MINOR.PATCH" >&2; exit 1; fi
+          code=$(( major * 10000 + minor * 100 + patch ))
+          # Push builds get the run number on top so every CI APK installs over the last.
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then code=$(( code * 100 + (${{ github.run_number }} % 100) )); fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Unit tests (engines, AI parsing, rep counters, voice DSP, game loop, screenshots)
+        run: ./gradlew recordRoborazziDebug --stacktrace
+
+      - name: Lint and build
+        env:
+          ARISE_VERSION_NAME: ${{ steps.version.outputs.name }}
+          ARISE_VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: ./gradlew lintRelease assembleRelease assembleDebug --stacktrace
+
+      - name: Verify the APK
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/release/app-release.apk
+          bt="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$bt/apksigner" verify --print-certs "$apk" | tee /tmp/certs.txt
+          expected="$(keytool -list -v -keystore arise.jks -storepass arisesystem | sed -n 's/.*SHA256: //p' | head -1 | tr -d ': ' | tr 'A-F' 'a-f')"
+          actual="$(sed -n 's/.*SHA-256 digest: //p' /tmp/certs.txt | head -1 | tr -d ': ' | tr 'A-F' 'a-f')"
+          test "$expected" = "$actual"
+          "$bt/aapt2" dump badging "$apk" > /tmp/badging.txt
+          grep -q "package: name='dev.aoidoki.arise'" /tmp/badging.txt
+          grep -q "application-label:'SYSTEM'" /tmp/badging.txt
+          grep -q "native-code: 'arm64-v8a'$" /tmp/badging.txt
+          for p in ACTIVITY_RECOGNITION FOREGROUND_SERVICE_HEALTH health.READ_STEPS CAMERA POST_NOTIFICATIONS; do
+            grep -q "$p" /tmp/badging.txt || { echo "missing permission $p" >&2; exit 1; }
+          done
+          test "$(grep -c '^launchable-activity' /tmp/badging.txt)" = 1
+          "$bt/aapt2" dump xmltree "$apk" --file AndroidManifest.xml > /tmp/manifest.txt
+          grep -q 'VIEW_PERMISSION_USAGE' /tmp/manifest.txt
+          grep -q 'ACTION_SHOW_PERMISSIONS_RATIONALE' /tmp/manifest.txt
+          ls -la app/build/outputs/apk/*/
+          sha256sum "$apk"
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: arise-apk
+          path: arise/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Upload the debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: arise-debug-apk
+          path: arise/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arise-screenshots
+          path: arise/app/src/test/screenshots/
+          if-no-files-found: ignore
+
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arise-reports
+          path: |
+            arise/app/build/reports/**
+            arise/app/build/test-results/**
+          if-no-files-found: ignore
+
+  emulator:
+    name: Smoke test on an emulator
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: arise-gradle-${{ runner.os }}-${{ hashFiles('arise/**/*.gradle', 'arise/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: arise-gradle-${{ runner.os }}-
+
+      - name: Run the smoke tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          working-directory: arise
+          script: |
+            adb logcat -c || true
+            adb logcat -v time > /tmp/logcat.txt 2>&1 &
+            ./gradlew connectedDebugAndroidTest --stacktrace
+            adb pull /sdcard/Android/data/dev.aoidoki.arise.debug/files/screens ../arise-emulator-screens || true
+
+      - name: Upload emulator results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arise-emulator
+          path: |
+            arise-emulator-screens/
+            /tmp/logcat.txt
+            arise/app/build/reports/androidTests/**
+            arise/app/build/outputs/androidTest-results/**
+          if-no-files-found: ignore
+
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: arise-apk
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          mv app-release.apk "SYSTEM-arise-v${VERSION}.apk"
+          cat > notes.md <<'EOF'
+          **SYSTEM** — a Solo Leveling–style System for real-life training and weight loss.
+
+          Install the APK on your phone (allow installs from your browser / file manager when Android asks).
+          It is a separate app from Mayonaka and does not replace or touch Termux.
+
+          First launch walks you through registration, permissions and (optionally) downloading the on-device AI core.
+          See `arise/README.md` in the repository for everything else.
+          EOF
+          gh release create "arise-v${VERSION}" "SYSTEM-arise-v${VERSION}.apk" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "SYSTEM (ARISE) v${VERSION}" \
+            --notes-file notes.md \
+            $([ "${{ inputs.prerelease }}" = "true" ] && echo --prerelease)
