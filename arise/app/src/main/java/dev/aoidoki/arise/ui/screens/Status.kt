@@ -224,6 +224,10 @@ private fun RecordPane(p: PlayerEntity, today: Long) {
             MiniStat("Recovery", "${PenaltyEngine.recoveryLeft(p, today)} left", Modifier.weight(1f))
             MiniStat("Gold", "${p.gold}", Modifier.weight(1f), Palette.Gold)
         }
+        if (p.overrides > 0) {
+            Spacer(Modifier.height(12.dp))
+            Row { MiniStat("Overrides", "${p.overrides}", Modifier.weight(1f), Palette.Crimson) }
+        }
     }
 }
 

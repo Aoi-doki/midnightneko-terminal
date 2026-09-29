@@ -2,7 +2,9 @@ package dev.aoidoki.arise
 
 import android.Manifest
 import android.app.ActivityManager
+import android.content.Intent
 import android.graphics.Bitmap
+import android.provider.Settings
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -16,6 +18,8 @@ import dev.aoidoki.arise.engine.Game
 import dev.aoidoki.arise.engine.ObjectiveType
 import dev.aoidoki.arise.engine.QuestKind
 import dev.aoidoki.arise.engine.QuestStatus
+import dev.aoidoki.arise.lock.PenaltyLock
+import dev.aoidoki.arise.lock.PenaltyLockService
 import dev.aoidoki.arise.sense.StepTrackerService
 import dev.aoidoki.arise.ui.components.StaticUi
 import dev.aoidoki.arise.voice.Chime
@@ -145,5 +149,44 @@ class SmokeTest {
         assertNotNull("step tracker not running", service)
         assertTrue("step tracker not in foreground", service!!.foreground)
         screenshot("07_final")
+    }
+
+    /** The Penalty Lock covers another app for real, and the override code lifts it. */
+    @Test
+    fun penaltyLockCoversAppsUntilOverridden() {
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val component = "${app.packageName}/${PenaltyLockService::class.java.name}"
+        fun shell(cmd: String) = inst.uiAutomation.executeShellCommand(cmd).close()
+        fun waitFor(ms: Long, cond: () -> Boolean): Boolean {
+            val end = System.currentTimeMillis() + ms
+            while (System.currentTimeMillis() < end) {
+                if (cond()) return true
+                Thread.sleep(200)
+            }
+            return cond()
+        }
+        try {
+            runBlocking {
+                graph.lock.setCode("482913")
+                assertEquals(PenaltyLock.Attempt.Accepted, graph.lock.setEnabled(true))
+            }
+            shell("settings put secure enabled_accessibility_services $component")
+            shell("settings put secure accessibility_enabled 1")
+            assertTrue("lock service never bound", waitFor(15_000) { PenaltyLockService.running.value })
+
+            runBlocking { graph.lock.test() }
+            app.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            assertTrue("the lock screen never covered Settings", waitFor(15_000) { PenaltyLockService.covering.value })
+            screenshot("08_penalty_lock")
+
+            assertTrue(runBlocking { graph.lock.override("000000") } is PenaltyLock.Attempt.Wrong)
+            assertTrue(PenaltyLockService.covering.value)
+            assertEquals(PenaltyLock.Attempt.Accepted, runBlocking { graph.lock.override("482913") })
+            assertTrue("the override didn't lift the lock", waitFor(10_000) { !PenaltyLockService.covering.value })
+            screenshot("09_lock_lifted")
+        } finally {
+            runBlocking { graph.lock.setEnabled(false, "482913") }
+            shell("settings delete secure enabled_accessibility_services")
+        }
     }
 }

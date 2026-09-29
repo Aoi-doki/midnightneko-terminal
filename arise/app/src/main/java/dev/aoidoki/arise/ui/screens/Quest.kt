@@ -54,6 +54,8 @@ fun QuestScreen(
     onReroll: () -> Unit,
     onStartTracker: () -> Unit,
     trackerGranted: Boolean,
+    lockUnarmed: Boolean = false,
+    onFixLock: () -> Unit = {},
 ) {
     val sys = LocalSys.current
     val p = state.player ?: return
@@ -78,6 +80,15 @@ fun QuestScreen(
             DailyPane(daily, state, onTrain, onManual = { manualFor = it })
         }
         state.trial?.let { TrialPane(it, state, onTrain) }
+        if (lockUnarmed) {
+            Pane(accent = Palette.Crimson) {
+                ListRow(
+                    title = "The Penalty Lock isn't armed",
+                    subtitle = "Its accessibility service is off, so a penalty won't lock the phone.",
+                    onClick = onFixLock,
+                ) { Text("Fix", style = SysType.BodyStrong.copy(color = Palette.Crimson)) }
+            }
+        }
         if (!trackerGranted) {
             Pane(accent = Palette.Fatigue) {
                 ListRow(
@@ -192,7 +203,7 @@ private fun ObjectiveRow(o: ObjectiveEntity, enabled: Boolean, onTrain: (Objecti
 }
 
 @Composable
-private fun PenaltyPane(q: QuestWithObjectives, now: Long) {
+fun PenaltyPane(q: QuestWithObjectives, now: Long) {
     val open = now >= q.quest.startsAt
     val secs = ((if (open) q.quest.deadline else q.quest.startsAt) - now).coerceAtLeast(0) / 1000
     Pane(label = "Penalty Quest", accent = Palette.Crimson, emphasis = true) {
