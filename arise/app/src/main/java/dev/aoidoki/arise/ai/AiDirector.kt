@@ -62,7 +62,7 @@ class AiDirector(
     suspend fun assess(): Boolean = task("Analyzing Player…") { model ->
         val p = game.player() ?: return@task null
         val stats = game.customStats()
-        val raw = llm.generate(model, Prompts.assessment(p, stats), temperature = 0.4f) ?: return@task null
+        val raw = llm.generate(model, Prompts.assessment(p, stats, model.maxTokens <= 1280), temperature = 0.4f) ?: return@task null
         val a = AiJson.parseAssessment(raw) ?: llm.generate(model, repair(raw), temperature = 0.2f)?.let { AiJson.parseAssessment(it) } ?: return@task null
         game.applyAiAssessment(Game.AiAssessment(a.summary, a.stats, a.limitations, a.baselines, null))
         prefs.edit().putString("assessed_with", model.label).apply()
@@ -85,7 +85,7 @@ class AiDirector(
         val rules = QuestPlanner.daily(ctx)
         val current = QuestPlan(QuestKind.DAILY, today.quest.title, today.quest.flavor, today.objectives.map { dev.aoidoki.arise.engine.ObjectivePlan(it.type, it.target) }, today.quest.xpReward)
         val history = "completion over the last week ${(ctx.recentCompletion * 100).toInt()}%, average steps ${ctx.avgSteps7d}"
-        val prompt = Prompts.dailyQuest(p, game.customStats(), rules, history, if (reroll) current else null)
+        val prompt = Prompts.dailyQuest(p, game.customStats(), rules, history, if (reroll) current else null, compact = model.maxTokens <= 1280)
         val raw = llm.generate(model, prompt, temperature = if (reroll) 0.9f else 0.7f) ?: return@task null
         val plan = AiJson.parseQuest(raw, QuestKind.DAILY, rules.xpReward)
             ?: llm.generate(model, repair(raw), temperature = 0.2f)?.let { AiJson.parseQuest(it, QuestKind.DAILY, rules.xpReward) }
@@ -99,7 +99,7 @@ class AiDirector(
         val power = game.power() ?: return@task null
         val target = RankEngine.trialAvailable(p, power.total, game.time.today()) ?: return@task null
         val rules = QuestPlanner.trial(game.context(p), target)
-        val raw = llm.generate(model, Prompts.trial(p, game.customStats(), rules, target), temperature = 0.7f) ?: return@task null
+        val raw = llm.generate(model, Prompts.trial(p, game.customStats(), rules, target, compact = model.maxTokens <= 1280), temperature = 0.7f) ?: return@task null
         val ai = AiJson.parseQuest(raw, QuestKind.TRIAL, rules.xpReward) ?: return@task null
         val byType = rules.objectives.associateBy { it.type }
         // Same objective types as the rules trial, each within ±15% of it.

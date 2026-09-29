@@ -30,19 +30,22 @@ object Prompts {
             "(start ${"%.1f".format(p.startWeightKg)}, goal ${"%.1f".format(p.goalWeightKg)}). BMI ${"%.1f".format(bmi)} (${BodyMetrics.bmiClass(bmi)})."
     }
 
-    private fun words(p: PlayerEntity, stats: List<CustomStatEntity>): String = buildString {
-        if (p.about.isNotBlank()) append("In their own words: \"${p.about.take(1200)}\"\n")
+    /** [compact] for small-context models (Lite: 1,280 tokens for prompt + answer). */
+    private fun words(p: PlayerEntity, stats: List<CustomStatEntity>, compact: Boolean): String = buildString {
+        val aboutMax = if (compact) 350 else 1200
+        val statsMax = if (compact) 10 else 30
+        if (p.about.isNotBlank()) append("In their own words: \"${p.about.take(aboutMax)}\"\n")
         if (stats.isNotEmpty()) {
             append("Their self-defined stats:\n")
-            stats.take(30).forEach { append("- ${it.name.take(60)}: ${it.value.take(120)}\n") }
+            stats.take(statsMax).forEach { append("- ${it.name.take(if (compact) 30 else 60)}: ${it.value.take(if (compact) 50 else 120)}\n") }
         }
     }
 
-    fun assessment(p: PlayerEntity, stats: List<CustomStatEntity>): String = chat(
+    fun assessment(p: PlayerEntity, stats: List<CustomStatEntity>, compact: Boolean = false): String = chat(
         """
         Assess this new Player.
         ${body(p)}
-        ${words(p, stats)}
+        ${words(p, stats, compact)}
         Give starting stats between 5 and 30 (10 is an average untrained adult): str (strength), agi (agility), vit (vitality/endurance), sen (senses/reflexes), int (intelligence/discipline).
         Mark care flags for any injury or condition they mention. Estimate a baseline only when their words support it, otherwise 0.
         Write a 2-3 sentence System evaluation of the Player in "summary".
@@ -51,7 +54,7 @@ object Prompts {
         """.trimIndent(),
     )
 
-    fun dailyQuest(p: PlayerEntity, stats: List<CustomStatEntity>, rules: QuestPlan, history: String, avoid: QuestPlan? = null): String {
+    fun dailyQuest(p: PlayerEntity, stats: List<CustomStatEntity>, rules: QuestPlan, history: String, avoid: QuestPlan? = null, compact: Boolean = false): String {
         val caps = rules.objectives.joinToString(", ") { "${key(it.type)} ≤ ${SafetyLimits.cap(it.type, p)}" }
         val allowed = ObjectiveType.entries.filter { SafetyLimits.allowed(it, p) }.joinToString(", ") { key(it) }
         val suggested = rules.objectives.joinToString(", ") { "${key(it.type)} ${it.target}" }
@@ -60,7 +63,7 @@ object Prompts {
             Write today's Daily Quest for this Player.
             ${body(p)} Rank ${p.rank.displayName}, level ${p.level}. Fatigue ${p.fatigue}/100. Streak ${p.streak} days.
             Measured: push-ups ${p.baselines.pushups}, squats ${p.baselines.squats}, sit-ups ${p.baselines.situps}, plank ${p.baselines.plankSec}s, avg steps ${p.baselines.avgSteps}.
-            ${words(p, stats)}
+            ${words(p, stats, compact)}
             Last days: $history
             ${if (p.limitations.notes.isNotEmpty()) "Constraints: ${p.limitations.notes.joinToString(" ")}" else ""}
             Allowed objective types: $allowed.
@@ -74,11 +77,11 @@ object Prompts {
         )
     }
 
-    fun trial(p: PlayerEntity, stats: List<CustomStatEntity>, rules: QuestPlan, target: Rank): String = chat(
+    fun trial(p: PlayerEntity, stats: List<CustomStatEntity>, rules: QuestPlan, target: Rank, compact: Boolean = false): String = chat(
         """
         The Player qualifies for promotion from ${p.rank.displayName} to ${target.displayName}. Design the one-day Rank-Up Trial.
         ${body(p)} Level ${p.level}.
-        ${words(p, stats)}
+        ${words(p, stats, compact)}
         It must be harder than a normal day but achievable in one day. A baseline trial is: ${rules.objectives.joinToString(", ") { "${key(it.type)} ${it.target}" }}.
         Keep the same objective types, adjust targets within ±15%, write a dramatic title and flavor.
         JSON format:
