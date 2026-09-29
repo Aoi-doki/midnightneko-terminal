@@ -2,8 +2,10 @@ package dev.aoidoki.arise
 
 import android.Manifest
 import android.app.ActivityManager
+import android.app.UiAutomation
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -51,6 +53,13 @@ class SmokeTest {
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as AriseApp
     private val graph get() = app.graph
 
+    /**
+     * Connected so it does not suppress other accessibility services: the default connection
+     * would switch off the Penalty Lock for the whole run.
+     */
+    private val uia: UiAutomation
+        get() = InstrumentationRegistry.getInstrumentation().getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+
     @Before
     fun setUp() {
         StaticUi.enabled = true
@@ -63,7 +72,7 @@ class SmokeTest {
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
-        val bmp = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
+        val bmp = uia.takeScreenshot() ?: return
         val dir = File(app.getExternalFilesDir(null), "screens").apply { mkdirs() }
         File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 90, it) }
     }
@@ -154,9 +163,10 @@ class SmokeTest {
     /** The Penalty Lock covers another app for real, and the override code lifts it. */
     @Test
     fun penaltyLockCoversAppsUntilOverridden() {
-        val inst = InstrumentationRegistry.getInstrumentation()
         val component = "${app.packageName}/${PenaltyLockService::class.java.name}"
-        fun shell(cmd: String) = inst.uiAutomation.executeShellCommand(cmd).close()
+        // Drain the output: closing the pipe early can cut the command off.
+        fun shell(cmd: String): String =
+            ParcelFileDescriptor.AutoCloseInputStream(uia.executeShellCommand(cmd)).use { it.readBytes().decodeToString() }
         fun waitFor(ms: Long, cond: () -> Boolean): Boolean {
             val end = System.currentTimeMillis() + ms
             while (System.currentTimeMillis() < end) {
@@ -172,7 +182,8 @@ class SmokeTest {
             }
             shell("settings put secure enabled_accessibility_services $component")
             shell("settings put secure accessibility_enabled 1")
-            assertTrue("lock service never bound", waitFor(15_000) { PenaltyLockService.running.value })
+            val enabled = shell("settings get secure enabled_accessibility_services").trim()
+            assertTrue("lock service never bound (enabled: $enabled)", waitFor(30_000) { PenaltyLockService.running.value })
 
             runBlocking { graph.lock.test() }
             app.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
