@@ -52,9 +52,16 @@ data class LockSettings(
     /** The penalty quest the override was used on; the lock stays off for it. */
     val overriddenQuestId: Long = -1,
     val testUntil: Long = 0,
+    /** The Night Lock: a daily window, as minutes after midnight (it may cross midnight). */
+    val nightEnabled: Boolean = false,
+    val nightStart: Int = 23 * 60,
+    val nightEnd: Int = 6 * 60 + 30,
+    /** The override lifted tonight's Night Lock until this instant. */
+    val nightLiftedUntil: Long = 0,
 ) {
     val hasCode: Boolean get() = codeHash.isNotEmpty()
-    val armed: Boolean get() = enabled && hasCode
+    /** Either lock can engage. */
+    val armed: Boolean get() = hasCode && (enabled || nightEnabled)
 }
 
 /** Where the Penalty Lock keeps its state; an interface so the lock can be tested without DataStore. */
@@ -67,6 +74,8 @@ interface LockStore {
     suspend fun setLockAttempts(fails: Int, retryAt: Long)
     suspend fun setLockOverridden(questId: Long)
     suspend fun setLockTestUntil(t: Long)
+    suspend fun setNight(enabled: Boolean, start: Int, end: Int)
+    suspend fun setNightLiftedUntil(t: Long)
 }
 
 class SettingsStore(private val context: Context) : LockStore {
@@ -94,6 +103,10 @@ class SettingsStore(private val context: Context) : LockStore {
         val lockRetryAt = longPreferencesKey("lock_retry_at")
         val lockOverridden = longPreferencesKey("lock_overridden")
         val lockTestUntil = longPreferencesKey("lock_test_until")
+        val nightEnabled = booleanPreferencesKey("night_enabled")
+        val nightStart = intPreferencesKey("night_start")
+        val nightEnd = intPreferencesKey("night_end")
+        val nightLifted = longPreferencesKey("night_lifted_until")
     }
 
     val flow: Flow<AppSettings> = context.store.data.map { p ->
@@ -125,6 +138,10 @@ class SettingsStore(private val context: Context) : LockStore {
                 retryAt = p[K.lockRetryAt] ?: 0,
                 overriddenQuestId = p[K.lockOverridden] ?: -1,
                 testUntil = p[K.lockTestUntil] ?: 0,
+                nightEnabled = p[K.nightEnabled] ?: false,
+                nightStart = p[K.nightStart] ?: (23 * 60),
+                nightEnd = p[K.nightEnd] ?: (6 * 60 + 30),
+                nightLiftedUntil = p[K.nightLifted] ?: 0,
             ),
         )
     }
@@ -183,5 +200,17 @@ class SettingsStore(private val context: Context) : LockStore {
 
     override suspend fun setLockTestUntil(t: Long) {
         context.store.edit { it[K.lockTestUntil] = t }
+    }
+
+    override suspend fun setNight(enabled: Boolean, start: Int, end: Int) {
+        context.store.edit {
+            it[K.nightEnabled] = enabled
+            it[K.nightStart] = start
+            it[K.nightEnd] = end
+        }
+    }
+
+    override suspend fun setNightLiftedUntil(t: Long) {
+        context.store.edit { it[K.nightLifted] = t }
     }
 }

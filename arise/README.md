@@ -120,6 +120,11 @@ open, the phone is locked until you've walked it off.
   freely.
 - **Test lock · 30 s** in Settings shows you the lock screen and lets you practise the override.
 
+**Night Lock.** Also in that pane and also off by default. It locks the phone every night between
+the times you choose (default 23:00 → 06:30), with the same apps allowed. The System stays silent
+at night. The override code lifts it until that morning, and it's recorded like any other
+override. While it's engaged, turning it off or changing its times needs the code.
+
 **How it works.** It's an Android accessibility service, "SYSTEM Penalty Lock". It is told which
 app is in front and nothing else: it can't read the screen, and nothing leaves the phone.
 

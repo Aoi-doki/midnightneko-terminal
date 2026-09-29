@@ -106,7 +106,9 @@ fun SettingsScreen(vm: MainViewModel, state: UiState, perms: Perms) {
                 },
                 installedApps = vm::installedApps,
                 setAllow = { vm.setLockAllow(it) },
+                setNight = vm::setNight,
             ),
+            night = lockState.night,
         )
         Pane(label = "Save Data") {
             Text("Your progress lives only on this phone. Export it before switching phones or reinstalling.", style = SysType.Small.copy(color = LocalSys.current.muted))

@@ -215,9 +215,20 @@ class ScreenshotTest {
     }
 
     @Test
+    fun nightLock() {
+        compose.setContent {
+            dev.aoidoki.arise.lock.LockScreen(
+                dev.aoidoki.arise.lock.LockState(engaged = true, night = true, until = now + 6 * 3_600_000 + 48 * 60_000),
+                emptyList(), lockActions, clock = { now },
+            )
+        }
+        compose.onRoot().captureRoboImage("src/test/screenshots/26_night_lock.png")
+    }
+
+    @Test
     fun lockSettings() = shot("24_lock_settings") {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            LockPane(dev.aoidoki.arise.data.LockSettings(enabled = true, codeHash = "x", codeSalt = "x", allow = setOf("a", "b")), engaged = false, serviceOn = false, c = lockControls)
+            LockPane(dev.aoidoki.arise.data.LockSettings(enabled = true, codeHash = "x", codeSalt = "x", allow = setOf("a", "b"), nightEnabled = true), engaged = false, serviceOn = false, c = lockControls)
             LockPane(dev.aoidoki.arise.data.LockSettings(), engaged = false, serviceOn = false, c = lockControls)
         }
     }

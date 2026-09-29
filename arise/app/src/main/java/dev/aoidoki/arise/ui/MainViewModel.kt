@@ -195,6 +195,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val lockService = dev.aoidoki.arise.lock.PenaltyLockService.running
     suspend fun setLockCode(code: String): String = g.lock.setCode(code)
     suspend fun setLockEnabled(on: Boolean, code: String) = g.lock.setEnabled(on, code)
+    suspend fun setNight(enabled: Boolean, start: Int, end: Int, code: String) = g.lock.setNight(enabled, start, end, code)
     fun testLock() = viewModelScope.launch { g.lock.test() }
     fun setLockAllow(pkgs: Set<String>) = viewModelScope.launch { g.lock.setAllow(pkgs) }
 

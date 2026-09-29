@@ -61,7 +61,7 @@ class PenaltyLockService : AccessibilityService() {
                 val cover = st.engaged && !locked && (fg == null || !LockPolicy.isAllowed(fg, packageName, extras(), allow, st.test))
                 st to cover
             }.collect { (st, cover) ->
-                if (st.engaged && !st.test && !engagedBefore) g.voice.say("The penalty lock is engaged. Walk.", g.settings.current().voice)
+                if (st.engaged && !st.test && !st.night && !engagedBefore) g.voice.say("The penalty lock is engaged. Walk.", g.settings.current().voice)
                 engagedBefore = st.engaged
                 if (cover) show() else hide()
             }

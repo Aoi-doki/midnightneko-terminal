@@ -26,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 class FakeLockStore : LockStore {
     val s = MutableStateFlow(LockSettings())
@@ -38,6 +39,8 @@ class FakeLockStore : LockStore {
     override suspend fun setLockAttempts(fails: Int, retryAt: Long) = s.update { it.copy(fails = fails, retryAt = retryAt) }
     override suspend fun setLockOverridden(questId: Long) = s.update { it.copy(overriddenQuestId = questId) }
     override suspend fun setLockTestUntil(t: Long) = s.update { it.copy(testUntil = t) }
+    override suspend fun setNight(enabled: Boolean, start: Int, end: Int) = s.update { it.copy(nightEnabled = enabled, nightStart = start, nightEnd = end) }
+    override suspend fun setNightLiftedUntil(t: Long) = s.update { it.copy(nightLiftedUntil = t) }
 }
 
 class OverrideCodeTest {
@@ -96,9 +99,41 @@ class LockPolicyTest {
         assertFalse(ok("com.sec.android.app.launcher"))
     }
 
+    private fun utc(h: Int, m: Int = 0, day: Int = 28) = LocalDateTime.of(2026, 9, day, h, m).toInstant(ZoneOffset.UTC).toEpochMilli()
+    private val night = LockSettings(codeHash = "x", nightEnabled = true, nightStart = 23 * 60, nightEnd = 6 * 60 + 30)
+    private fun at(ms: Long, s: LockSettings = night) = LockPolicy.state(s, emptyList(), ms, ZoneOffset.UTC)
+
+    @Test
+    fun `the night window crosses midnight`() {
+        assertTrue(at(utc(23, 30)).night)
+        assertTrue(at(utc(3)).night)
+        assertTrue(at(utc(6, 29)).night)
+        assertFalse(at(utc(6, 30)).engaged)
+        assertFalse(at(utc(12)).engaged)
+        assertFalse(at(utc(22, 59)).engaged)
+        assertEquals(utc(6, 30, day = 29), at(utc(23, 30)).until)
+        assertEquals(utc(6, 30), at(utc(3)).until)
+    }
+
+    @Test
+    fun `a same-day window and an empty one`() {
+        val nap = night.copy(nightStart = 13 * 60, nightEnd = 14 * 60)
+        assertTrue(at(utc(13, 30), nap).night)
+        assertFalse(at(utc(14), nap).engaged)
+        assertFalse(at(utc(13), night.copy(nightStart = 60, nightEnd = 60)).engaged)
+    }
+
+    @Test
+    fun `off unless enabled, and the override lasts only until morning`() {
+        assertFalse(at(utc(1), night.copy(nightEnabled = false)).engaged)
+        val lifted = night.copy(nightLiftedUntil = utc(6, 30))
+        assertFalse(at(utc(1), lifted).engaged)
+        assertTrue(at(utc(23, 30), lifted).night)
+    }
+
     @Test
     fun `not armed without a code`() {
-        val s = LockPolicy.state(LockSettings(enabled = true, testUntil = Long.MAX_VALUE), emptyList(), 0)
+        val s = LockPolicy.state(LockSettings(enabled = true, testUntil = Long.MAX_VALUE), emptyList(), 0, ZoneOffset.UTC)
         assertFalse(s.engaged)
     }
 }
@@ -215,6 +250,22 @@ class PenaltyLockTest {
         assertTrue(lock.now().test)
         time.nowMillis += PenaltyLock.TEST_MILLIS
         assertFalse(lock.now().engaged)
+    }
+
+    @Test
+    fun `the night override lifts tonight only and is recorded`() = runBlocking {
+        lock.setCode("482913")
+        assertEquals(PenaltyLock.Attempt.Accepted, lock.setNight(true, 23 * 60, 6 * 60 + 30))
+        time.nowMillis = LocalDateTime.of(2026, 9, 28, 23, 30).toInstant(ZoneOffset.UTC).toEpochMilli()
+        assertTrue(lock.now().night)
+        // Changing the schedule while it's engaged needs the code.
+        assertTrue(lock.setNight(false, 23 * 60, 6 * 60 + 30) is PenaltyLock.Attempt.Wrong)
+        assertTrue(lock.now().night)
+        assertEquals(PenaltyLock.Attempt.Accepted, lock.override("482913"))
+        assertFalse(lock.now().engaged)
+        assertEquals(1, game.player()!!.overrides)
+        time.plusHours(24)
+        assertTrue(lock.now().night)
     }
 
     @Test
