@@ -72,7 +72,7 @@ fun AriseRoot(vm: MainViewModel, perms: Perms) {
                 state.player == null -> AwakeningScreen(vm, state, perms)
                 else -> MainShell(vm, state, perms)
             }
-            popups.firstOrNull()?.let { EventPopup(it, onDismiss = vm::dismissPopup) }
+            popups.firstOrNull()?.let { EventPopup(it, onDismiss = vm::dismissPopup, onShown = { vm.say(it.speech) }, stillSpeaking = vm::isSpeaking) }
             if (state.player != null && !state.settings.disclaimerAccepted) Disclaimer(vm::acceptDisclaimer)
         }
     }
@@ -178,7 +178,7 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-fun EventPopup(e: SystemEvent, onDismiss: () -> Unit) {
+fun EventPopup(e: SystemEvent, onDismiss: () -> Unit, onShown: () -> Unit = {}, stillSpeaking: () -> Boolean = { false }) {
     val penalty = e.type in setOf(SystemEvent.Type.PENALTY_STARTED, SystemEvent.Type.PENALTY_FAILED, SystemEvent.Type.DEATH, SystemEvent.Type.WARNING)
     val accent = when {
         penalty -> Palette.Red
@@ -187,7 +187,14 @@ fun EventPopup(e: SystemEvent, onDismiss: () -> Unit) {
         else -> LocalSys.current.accent
     }
     LaunchedEffect(e) {
+        // Speak the instant the window opens, then auto-close, but never mid-sentence.
+        onShown()
         delay(if (penalty) 12_000 else 7_000)
+        var waited = 0
+        while (stillSpeaking() && waited < 10_000) {
+            delay(250)
+            waited += 250
+        }
         onDismiss()
     }
     Box(

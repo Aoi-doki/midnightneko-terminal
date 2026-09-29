@@ -91,3 +91,37 @@ class WavTest {
         f.delete()
     }
 }
+
+class SpeechGateTest {
+    @Test
+    fun `stop makes everything already queued stale`() {
+        val gate = SpeechGate()
+        val a = gate.current()
+        val b = gate.current()
+        assertTrue(!gate.isStale(a) && !gate.isStale(b))
+        gate.invalidate()
+        assertTrue(gate.isStale(a) && gate.isStale(b))
+        // Lines queued after the stop play normally.
+        assertTrue(!gate.isStale(gate.current()))
+    }
+
+    @Test
+    fun `fixed lines cover the common announcements`() {
+        assertTrue(Lines.all.contains("You have completed the daily quest. Rewards have been distributed."))
+        assertTrue(Lines.all.contains("Daily quest, 50 percent complete."))
+        assertEquals(Lines.all.size, Lines.all.toSet().size)
+    }
+}
+
+class GhostFxSpeedTest {
+    @Test
+    fun `five seconds of speech processes fast enough to follow the chime`() {
+        val rate = 24000
+        val input = FloatArray(5 * rate) { i -> sin(2 * PI * 220 * i / rate).toFloat() * 0.5f }
+        GhostFx.process(input, rate) // JIT warm-up
+        val t0 = System.nanoTime()
+        GhostFx.process(input, rate)
+        val ms = (System.nanoTime() - t0) / 1_000_000
+        assertTrue("took ${ms}ms", ms < 400)
+    }
+}

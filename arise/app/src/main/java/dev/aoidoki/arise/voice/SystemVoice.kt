@@ -19,7 +19,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.security.MessageDigest
@@ -29,12 +32,16 @@ import java.util.Locale
  * The System speaks: Android TTS (a female voice when the engine has one) rendered to a file,
  * run through [GhostFx], preceded by the [Chime], and played through an AudioTrack.
  *
- * Lines are queued so announcements never talk over each other, and every processed line is cached
- * so the common ones ("Daily quest complete") play instantly the second time.
+ * The chime starts the instant a line is asked for, and the line itself renders underneath it.
+ * Lines are queued so announcements never talk over each other, [stop] drops whatever is queued,
+ * and every processed line is cached; the fixed ones are rendered ahead of time by [prewarm].
  */
 class SystemVoice(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val queue = Channel<Pair<String, VoiceSettings>>(Channel.BUFFERED)
+    private val queue = Channel<Triple<String, VoiceSettings, Int>>(Channel.UNLIMITED)
+    private val gate = SpeechGate()
+    /** TTS takes one utterance listener at a time, so speech and prewarming take turns. */
+    private val synthLock = Mutex()
     @Volatile
     private var tts: TextToSpeech? = null
     private val ready = CompletableDeferred<Boolean>()
@@ -46,11 +53,17 @@ class SystemVoice(private val context: Context) {
     /** Installed voice names, female-looking ones first. */
     val voices: StateFlow<List<String>> = _voices
 
-    @Volatile
-    private var chosen: String = ""
+    /** Tracks currently playing, so [stop] can cut them off. */
+    private val playing = java.util.concurrent.CopyOnWriteArrayList<AudioTrack>()
+    private val chime by lazy { Chime.synth(CHIME_RATE) }
 
     init {
-        scope.launch { for ((text, s) in queue) runCatching { speakNow(text, s) }.onFailure { Log.w(TAG, "speak failed", it) } }
+        scope.launch {
+            for ((text, s, gen) in queue) {
+                if (gate.isStale(gen)) continue
+                runCatching { speakNow(text, s, gen) }.onFailure { Log.w(TAG, "speak failed", it) }
+            }
+        }
     }
 
     @Volatile
@@ -76,6 +89,28 @@ class SystemVoice(private val context: Context) {
         }
     }
 
+    /** Bind the TTS engine and build the chime ahead of time, so the first line isn't slow. */
+    fun warmUp() {
+        ensureTts()
+        scope.launch { chime.size }
+    }
+
+    /**
+     * Render and cache [lines] in the background (skipping ones already cached), so they play the
+     * moment they're needed. Yields to live speech between lines.
+     */
+    fun prewarm(lines: List<String>, s: VoiceSettings) {
+        if (!s.enabled) return
+        ensureTts()
+        scope.launch(Dispatchers.IO) {
+            for (line in lines) {
+                if (cacheFile(line, s).exists()) continue
+                while (_speaking.value) delay(500)
+                runCatching { render(line, s) }.onFailure { Log.w(TAG, "prewarm failed", it) }
+            }
+        }
+    }
+
     /** Female voices first. Engines mark them inconsistently, so check features, then known names. */
     private fun rank(all: List<Voice>): List<Voice> {
         val knownFemale = listOf("sfg", "tpc", "tpf", "iob", "iog", "female", "en-us-x-sfg", "en-gb-x-gba", "en-gb-x-fis")
@@ -96,26 +131,46 @@ class SystemVoice(private val context: Context) {
     fun say(text: String, settings: VoiceSettings) {
         if (!settings.enabled || text.isBlank()) return
         ensureTts()
-        queue.trySend(text to settings)
+        queue.trySend(Triple(text, settings, gate.current()))
     }
 
-    private suspend fun speakNow(text: String, s: VoiceSettings) {
-        val sampleRateOut: Int
-        val key = sha("$text|${s.echo}|${s.reverb}|${s.ghost}|${s.pitch}|${s.rate}|${s.voiceName}|v2")
-        val cached = File(cacheDir, "$key.wav")
-        val pcm: Wav.Pcm = if (cached.exists()) {
-            Wav.read(cached) ?: return
-        } else {
-            val raw = synthesize(text, s) ?: return
-            val processed = GhostFx.process(raw.samples, raw.sampleRate, GhostFx.Params(echo = s.echo, reverb = s.reverb, ghost = s.ghost))
-            Wav.write(cached, processed, raw.sampleRate)
-            trimCache()
-            Wav.Pcm(processed, raw.sampleRate)
+    /** Silence the System now and drop everything queued (e.g. the popup it belonged to was dismissed). */
+    fun stop() {
+        gate.invalidate()
+        for (t in playing) runCatching { t.pause(); t.flush(); t.stop() }
+    }
+
+    private fun cacheFile(text: String, s: VoiceSettings): File =
+        File(cacheDir, sha("$text|${s.echo}|${s.reverb}|${s.ghost}|${s.pitch}|${s.rate}|${s.voiceName}|v2") + ".wav")
+
+    /** Synthesize, apply the ghost effects and cache one line. */
+    private suspend fun render(text: String, s: VoiceSettings): Wav.Pcm? {
+        val cached = cacheFile(text, s)
+        if (cached.exists()) return Wav.read(cached)
+        val raw = synthLock.withLock { synthesize(text, s) } ?: return null
+        val processed = GhostFx.process(raw.samples, raw.sampleRate, GhostFx.Params(echo = s.echo, reverb = s.reverb, ghost = s.ghost))
+        Wav.write(cached, processed, raw.sampleRate)
+        trimCache()
+        return Wav.Pcm(processed, raw.sampleRate)
+    }
+
+    private suspend fun speakNow(text: String, s: VoiceSettings, gen: Int) = coroutineScope {
+        _speaking.value = true
+        val focus = requestFocus()
+        try {
+            // The chime starts at once, in step with the popup, while the line renders underneath it.
+            val started = System.currentTimeMillis()
+            val ding = if (s.chime) launch { play(chime, CHIME_RATE, gen) } else null
+            val pcm = render(text, s)
+            // Let the chime ring for a moment before the voice comes in over its tail.
+            val wait = CHIME_LEAD_MS - (System.currentTimeMillis() - started)
+            if (ding != null && wait > 0) delay(wait)
+            if (pcm != null && !gate.isStale(gen)) play(pcm.samples, pcm.sampleRate, gen)
+            ding?.join()
+        } finally {
+            _speaking.value = false
+            abandonFocus(focus)
         }
-        sampleRateOut = pcm.sampleRate
-        val chime = if (s.chime) Chime.synth(sampleRateOut) else FloatArray(0)
-        val gap = FloatArray((0.15f * sampleRateOut).toInt())
-        play(chime + gap + pcm.samples, sampleRateOut)
     }
 
     /** Render the line with TTS into a WAV and read it back. */
@@ -124,12 +179,7 @@ class SystemVoice(private val context: Context) {
         val engine = tts ?: return null
         val voice = engine.voices.orEmpty().firstOrNull { it.name == s.voiceName }
             ?: engine.voices.orEmpty().filter { !it.isNetworkConnectionRequired && it.locale.language == "en" }.let { rank(it).firstOrNull() }
-        if (voice != null) {
-            engine.voice = voice
-            chosen = voice.name
-        } else {
-            engine.language = Locale.US
-        }
+        if (voice != null) engine.voice = voice else engine.language = Locale.US
         engine.setPitch(s.pitch)
         engine.setSpeechRate(s.rate)
         val out = File(cacheDir, "tts_${System.nanoTime()}.wav")
@@ -150,33 +200,44 @@ class SystemVoice(private val context: Context) {
         return pcm
     }
 
-    private suspend fun play(samples: FloatArray, sampleRate: Int) {
-        val am = context.getSystemService(AudioManager::class.java)
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANT)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-            .build()
+    private val attrs: AudioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ASSISTANT)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+        .build()
+
+    private fun requestFocus(): AudioFocusRequest? {
+        val am = context.getSystemService(AudioManager::class.java) ?: return null
         val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attrs).build()
-        am?.requestAudioFocus(focus)
-        _speaking.value = true
+        am.requestAudioFocus(focus)
+        return focus
+    }
+
+    private fun abandonFocus(focus: AudioFocusRequest?) {
+        if (focus != null) context.getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(focus)
+    }
+
+    /** Play one buffer to the end, or until [stop] makes its generation stale. */
+    private suspend fun play(samples: FloatArray, sampleRate: Int, gen: Int) {
+        if (samples.isEmpty() || gate.isStale(gen)) return
+        val track = AudioTrack.Builder()
+            .setAudioAttributes(attrs)
+            .setAudioFormat(
+                AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(sampleRate)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build(),
+            )
+            .setTransferMode(AudioTrack.MODE_STATIC)
+            .setBufferSizeInBytes(samples.size * 4)
+            .build()
+        playing += track
         try {
-            val track = AudioTrack.Builder()
-                .setAudioAttributes(attrs)
-                .setAudioFormat(
-                    AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(sampleRate)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build(),
-                )
-                .setTransferMode(AudioTrack.MODE_STATIC)
-                .setBufferSizeInBytes(samples.size * 4)
-                .build()
             track.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
             track.play()
-            delay(samples.size * 1000L / sampleRate + 150)
-            track.stop()
-            track.release()
+            val end = System.currentTimeMillis() + samples.size * 1000L / sampleRate + 100
+            while (System.currentTimeMillis() < end && !gate.isStale(gen)) delay(40)
+            runCatching { track.stop() }
         } finally {
-            _speaking.value = false
-            am?.abandonAudioFocusRequest(focus)
+            playing -= track
+            track.release()
         }
     }
 
@@ -203,5 +264,8 @@ class SystemVoice(private val context: Context) {
 
     companion object {
         private const val TAG = "SystemVoice"
+        private const val CHIME_RATE = 24000
+        /** How long the chime rings alone before the voice starts over its tail. */
+        private const val CHIME_LEAD_MS = 450L
     }
 }

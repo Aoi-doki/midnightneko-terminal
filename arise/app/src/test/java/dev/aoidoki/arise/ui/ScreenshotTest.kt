@@ -173,7 +173,7 @@ class ScreenshotTest {
 
     @Test
     fun levelUpPopup() = shot("20_popup_level_up") {
-        EventPopup(SystemEvent(SystemEvent.Type.LEVEL_UP, "Level Up!", "You have leveled up! Level 8. +3 ability points.")) {}
+        EventPopup(SystemEvent(SystemEvent.Type.LEVEL_UP, "Level Up!", "You have leveled up! Level 8. +3 ability points."), onDismiss = {})
     }
 
     @Test
@@ -183,6 +183,7 @@ class ScreenshotTest {
                 SystemEvent.Type.PENALTY_STARTED, "Penalty Zone",
                 "You have failed to complete the Daily Quest. The Penalty Quest \"Survival\" opens at 07:00 and lasts 6 hours.",
             ),
-        ) {}
+            onDismiss = {},
+        )
     }
 }
