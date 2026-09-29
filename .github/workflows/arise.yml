@@ -22,6 +22,10 @@ on:
       version:
         description: Version to stamp and publish (MAJOR.MINOR.PATCH)
         default: "0.1.0"
+      prerelease:
+        description: Mark the GitHub release as a pre-release
+        type: boolean
+        default: true
 
 concurrency:
   group: arise-${{ github.ref }}
@@ -196,7 +200,7 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    name: Publish pre-release
+    name: Publish release
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'workflow_dispatch' && inputs.publish
@@ -226,4 +230,4 @@ jobs:
             --target "${{ github.sha }}" \
             --title "SYSTEM (ARISE) v${VERSION}" \
             --notes-file notes.md \
-            --prerelease
+            $([ "${{ inputs.prerelease }}" = "true" ] && echo --prerelease)
