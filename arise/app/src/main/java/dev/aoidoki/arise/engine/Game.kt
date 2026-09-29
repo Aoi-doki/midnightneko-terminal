@@ -614,16 +614,21 @@ class Game(private val db: AriseDatabase, val time: TimeSource) {
     // ---- Penalty Lock ---------------------------------------------------------------------------
 
     /** The override code lifted the lock. The penalty quest itself keeps running. */
-    suspend fun recordOverride() {
+    suspend fun recordOverride(night: Boolean = false) {
         val out = lock.withLock {
             val p = players.get() ?: return@withLock null
             players.save(p.copy(overrides = p.overrides + 1))
             listOf(
-                SystemEvent(
-                    SystemEvent.Type.WARNING, "Override Accepted",
-                    "The Penalty Lock has been lifted. The Penalty Quest remains. This has been recorded.",
-                    "Override accepted. The quest remains. This has been recorded.",
-                ),
+                if (night) {
+                    // Silent: nothing speaks at night.
+                    SystemEvent(SystemEvent.Type.WARNING, "Night Lock Lifted", "The Night Lock is lifted until morning. This has been recorded.", speech = "")
+                } else {
+                    SystemEvent(
+                        SystemEvent.Type.WARNING, "Override Accepted",
+                        "The Penalty Lock has been lifted. The Penalty Quest remains. This has been recorded.",
+                        "Override accepted. The quest remains. This has been recorded.",
+                    )
+                },
             )
         } ?: return
         announce(out)

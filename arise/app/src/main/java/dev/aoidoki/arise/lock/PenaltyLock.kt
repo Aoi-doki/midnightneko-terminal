@@ -42,12 +42,12 @@ class PenaltyLock(
     }
 
     val state: StateFlow<LockState> =
-        combine(settings.lockFlow, active, ticker) { lock, quests, _ -> LockPolicy.state(lock, quests, time.now()) }
+        combine(settings.lockFlow, active, ticker) { lock, quests, _ -> LockPolicy.state(lock, quests, time.now(), time.zone()) }
             .distinctUntilChanged()
             .stateIn(scope, SharingStarted.Eagerly, LockState.Off)
 
     /** The lock as of this instant (the [state] flow can trail by a tick). */
-    suspend fun now(): LockState = LockPolicy.state(settings.lock(), game.activeQuests(), time.now())
+    suspend fun now(): LockState = LockPolicy.state(settings.lock(), game.activeQuests(), time.now(), time.zone())
 
     /** Sets (or replaces) the override code. Returns the new recovery code, shown to the player once. */
     suspend fun setCode(code: String): String {
@@ -74,13 +74,16 @@ class PenaltyLock(
         return Attempt.Accepted
     }
 
-    /** The override: lifts the lock for the current penalty (or ends a test). */
+    /** The override: lifts the lock for the current penalty, for the rest of tonight, or ends a test. */
     suspend fun override(input: String): Attempt {
         val s = now()
         val a = verify(input)
         if (a != Attempt.Accepted) return a
         if (s.test) {
             settings.setLockTestUntil(0)
+        } else if (s.night) {
+            settings.setNightLiftedUntil(s.until)
+            game.recordOverride(night = true)
         } else {
             val q = s.quest
             if (q != null) {
@@ -101,6 +104,17 @@ class PenaltyLock(
             settings.setLockTestUntil(0)
         }
         settings.setLockEnabled(on)
+        return Attempt.Accepted
+    }
+
+    /** The Night Lock schedule. Changing it while any lock is engaged needs the code, or it would be a way out. */
+    suspend fun setNight(enabled: Boolean, start: Int, end: Int, code: String = ""): Attempt {
+        if (enabled && !settings.lock().hasCode) return Attempt.Wrong(OverrideCode.FREE_TRIES)
+        if (now().engaged) {
+            val a = verify(code)
+            if (a != Attempt.Accepted) return a
+        }
+        settings.setNight(enabled, start.coerceIn(0, 1439), end.coerceIn(0, 1439))
         return Attempt.Accepted
     }
 

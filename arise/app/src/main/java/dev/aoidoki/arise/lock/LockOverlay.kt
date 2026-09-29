@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -46,6 +47,7 @@ import dev.aoidoki.arise.ui.components.SystemBackground
 import dev.aoidoki.arise.ui.components.staticMode
 import dev.aoidoki.arise.ui.screens.PenaltyPane
 import dev.aoidoki.arise.ui.theme.AriseTheme
+import dev.aoidoki.arise.ui.theme.Fonts
 import dev.aoidoki.arise.ui.theme.LocalSys
 import dev.aoidoki.arise.ui.theme.Palette
 import dev.aoidoki.arise.ui.theme.SysType
@@ -68,7 +70,7 @@ interface LockActions {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LockScreen(state: LockState, apps: List<LockApp>, actions: LockActions, clock: () -> Long = System::currentTimeMillis, startOverride: Boolean = false) {
-    AriseTheme(penalty = true) {
+    AriseTheme(penalty = !state.night) {
         val sys = LocalSys.current
         var now by remember { mutableLongStateOf(clock()) }
         val still = staticMode()
@@ -88,17 +90,25 @@ fun LockScreen(state: LockState, apps: List<LockApp>, actions: LockActions, cloc
                     .padding(horizontal = 16.dp, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("PENALTY ZONE", style = SysType.Label.copy(color = sys.accent))
+                Text(if (state.night) "LIGHTS OUT" else "PENALTY ZONE", style = SysType.Label.copy(color = sys.accent))
                 Text(
-                    if (state.test) "Test lock" else "This phone is locked.",
+                    when {
+                        state.test -> "Test lock"
+                        state.night -> "Rest is training."
+                        else -> "This phone is locked."
+                    },
                     style = SysType.Title.copy(color = sys.text),
                 )
                 Text(
-                    if (state.test) "This is what a Penalty Zone looks like. It lifts in 30 seconds, or with your override code."
-                    else "Walk. The System is watching. The lock lifts the moment the Penalty Quest is complete.",
+                    when {
+                        state.test -> "This is what a Penalty Zone looks like. It lifts in 30 seconds, or with your override code."
+                        state.night -> "The Night Lock lifts in the morning. Put the phone down, Player."
+                        else -> "Walk. The System is watching. The lock lifts the moment the Penalty Quest is complete."
+                    },
                     style = SysType.Body.copy(color = sys.muted),
                 )
                 state.quest?.let { PenaltyPane(it, now) }
+                if (state.night) NightPane(state.until, now)
                 Pane(label = "Still available") {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SysButton("Phone", actions::phone, Modifier.weight(1f), kind = ButtonKind.SECONDARY, accent = Palette.White)
@@ -117,6 +127,20 @@ fun LockScreen(state: LockState, apps: List<LockApp>, actions: LockActions, cloc
                 OverrideBox(actions, startOverride, now)
             }
         }
+    }
+}
+
+@Composable
+private fun NightPane(until: Long, now: Long) {
+    val secs = ((until - now).coerceAtLeast(0)) / 1000
+    Pane(label = "Night Lock", accent = Palette.Violet, emphasis = true) {
+        Text("Lifts in", style = SysType.Label.copy(color = Palette.Silver))
+        Text(
+            "%02d:%02d:%02d".format(secs / 3600, (secs / 60) % 60, secs % 60),
+            style = SysType.Huge.copy(color = Palette.Violet, fontSize = 44.sp, fontFamily = Fonts.Mono),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text("Alarms, calls and messages still work.", style = SysType.Small.copy(color = Palette.Silver))
     }
 }
 
@@ -141,7 +165,7 @@ private fun OverrideBox(actions: LockActions, startOpen: Boolean, now: Long) {
     }
     Pane(label = "Override", accent = Palette.Silver) {
         Text(
-            "For emergencies. The lock lifts, the Penalty Quest stays, and the System records it.",
+            "For emergencies. The lock lifts (tonight only, for the Night Lock), any Penalty Quest stays, and the System records it.",
             style = SysType.Small.copy(color = sys.muted),
         )
         Spacer(Modifier.height(10.dp))

@@ -13,7 +13,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,26 +51,38 @@ class LockControls(
     val openAppInfo: () -> Unit,
     val installedApps: () -> List<LockApp>,
     val setAllow: (Set<String>) -> Unit,
+    val setNight: suspend (Boolean, Int, Int, String) -> PenaltyLock.Attempt = { _, _, _, _ -> PenaltyLock.Attempt.Accepted },
 )
 
+private fun hhmm(minutes: Int) = "%02d:%02d".format(minutes / 60, minutes % 60)
+
+/** A Night Lock change waiting for the override code (the lock is engaged). */
+private data class NightChange(val enabled: Boolean, val start: Int, val end: Int)
+
 @Composable
-fun LockPane(lock: LockSettings, engaged: Boolean, serviceOn: Boolean, c: LockControls, initialRecovery: String? = null) {
+fun LockPane(lock: LockSettings, engaged: Boolean, serviceOn: Boolean, c: LockControls, initialRecovery: String? = null, night: Boolean = false) {
     val sys = LocalSys.current
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf(false) }
     var recovery by remember { mutableStateOf(initialRecovery) }
     var askCode by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
+    var pendingNight by remember { mutableStateOf<NightChange?>(null) }
+    var pickingTime by remember { mutableStateOf<Boolean?>(null) } // true = start, false = end
+    fun changeNight(n: NightChange) {
+        if (engaged) pendingNight = n else scope.launch { c.setNight(n.enabled, n.start, n.end, "") }
+    }
     val status = when {
         !lock.armed -> "OFF" to Palette.Silver
+        engaged && night -> "NIGHT" to Palette.Violet
         engaged -> "ENGAGED" to Palette.Crimson
         !serviceOn -> "NOT ARMED" to Palette.Fatigue
         else -> "ARMED" to Palette.Good
     }
     Pane(label = "Penalty Lock", accent = Palette.Crimson, trailing = { Text(status.first, style = SysType.Label.copy(color = status.second)) }) {
         Text(
-            "In the Penalty Zone, the phone locks until the Penalty Quest is walked off. Calls, messages, alarms and " +
-                "emergency calls always work. Your override code unlocks it if you ever need to.",
+            "In the Penalty Zone, the phone locks until the Penalty Quest is walked off, and the Night Lock covers the hours you should be asleep. " +
+                "Calls, messages, alarms and emergency calls always work. Your override code unlocks it if you ever need to.",
             style = SysType.Small.copy(color = sys.muted),
         )
         Spacer(Modifier.height(10.dp))
@@ -77,8 +92,17 @@ fun LockPane(lock: LockSettings, engaged: Boolean, serviceOn: Boolean, c: LockCo
                 onCancel = if (lock.hasCode) ({ editing = false }) else null,
             )
         } else {
-            ToggleRow("Lock the phone", "Only while a Penalty Quest is running.", lock.enabled) { on ->
+            ToggleRow("Penalty lock", "Only while a Penalty Quest is running.", lock.enabled) { on ->
                 if (!on && engaged) askCode = true else scope.launch { c.setEnabled(on, "") }
+            }
+            ToggleRow("Night lock", "Every night, ${hhmm(lock.nightStart)} → ${hhmm(lock.nightEnd)}. The override lifts it until morning.", lock.nightEnabled) { on ->
+                changeNight(NightChange(on, lock.nightStart, lock.nightEnd))
+            }
+            if (lock.nightEnabled) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                    SysButton("From ${hhmm(lock.nightStart)}", { pickingTime = true }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
+                    SysButton("Until ${hhmm(lock.nightEnd)}", { pickingTime = false }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
+                }
             }
             PermRow(
                 "Accessibility service",
@@ -112,6 +136,23 @@ fun LockPane(lock: LockSettings, engaged: Boolean, serviceOn: Boolean, c: LockCo
             onDismiss = { askCode = false },
             onSubmit = { input -> c.setEnabled(false, input).also { if (it == PenaltyLock.Attempt.Accepted) askCode = false } },
         )
+    }
+    pendingNight?.let { n ->
+        CodeDialog(
+            title = "Change the Night Lock",
+            onDismiss = { pendingNight = null },
+            onSubmit = { input -> c.setNight(n.enabled, n.start, n.end, input).also { if (it == PenaltyLock.Attempt.Accepted) pendingNight = null } },
+        )
+    }
+    pickingTime?.let { start ->
+        TimeDialog(
+            title = if (start) "Night Lock starts" else "Night Lock ends",
+            minutes = if (start) lock.nightStart else lock.nightEnd,
+            onDismiss = { pickingTime = null },
+        ) { m ->
+            pickingTime = null
+            changeNight(if (start) NightChange(true, m, lock.nightEnd) else NightChange(true, lock.nightStart, m))
+        }
     }
     if (picking) AllowDialog(c.installedApps(), lock.allow, onDismiss = { picking = false }) { c.setAllow(it); picking = false }
 }
@@ -164,7 +205,7 @@ private fun CodeDialog(title: String, onDismiss: () -> Unit, onSubmit: suspend (
     var message by remember { mutableStateOf<String?>(null) }
     Dialog(onDismissRequest = onDismiss) {
         SystemWindow(title = title, accent = Palette.Crimson) {
-            Text("The lock is engaged. Enter your override or recovery code.", style = SysType.Small.copy(color = sys.muted))
+            Text("A lock is engaged. Enter your override or recovery code.", style = SysType.Small.copy(color = sys.muted))
             Spacer(Modifier.height(10.dp))
             SysField("Code", input, { input = it.take(24); message = null }, secret = true)
             message?.let { Text(it, style = SysType.Small.copy(color = Palette.Crimson), modifier = Modifier.padding(top = 6.dp)) }
@@ -181,6 +222,21 @@ private fun CodeDialog(title: String, onDismiss: () -> Unit, onSubmit: suspend (
                         input = ""
                     }
                 }, Modifier.weight(1f), accent = Palette.Crimson, enabled = input.isNotBlank())
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeDialog(title: String, minutes: Int, onDismiss: () -> Unit, onSet: (Int) -> Unit) {
+    val t = rememberTimePickerState(initialHour = minutes / 60, initialMinute = minutes % 60, is24Hour = true)
+    Dialog(onDismissRequest = onDismiss) {
+        SystemWindow(title = title) {
+            TimePicker(t, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SysButton("Cancel", onDismiss, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
+                SysButton("Set", { onSet(t.hour * 60 + t.minute) }, Modifier.weight(1f))
             }
         }
     }

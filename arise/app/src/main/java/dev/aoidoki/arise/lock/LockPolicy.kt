@@ -4,9 +4,21 @@ import dev.aoidoki.arise.data.LockSettings
 import dev.aoidoki.arise.data.QuestWithObjectives
 import dev.aoidoki.arise.engine.QuestKind
 import dev.aoidoki.arise.engine.QuestStatus
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
-/** What the lock is doing right now. [quest] is null during a test lock. */
-data class LockState(val engaged: Boolean, val quest: QuestWithObjectives? = null, val test: Boolean = false) {
+/**
+ * What the lock is doing right now. [quest] is set during a penalty; [night] during the Night Lock,
+ * with [until] the end of tonight's window.
+ */
+data class LockState(
+    val engaged: Boolean,
+    val quest: QuestWithObjectives? = null,
+    val test: Boolean = false,
+    val night: Boolean = false,
+    val until: Long = 0,
+) {
     companion object {
         val Off = LockState(false)
     }
@@ -15,8 +27,9 @@ data class LockState(val engaged: Boolean, val quest: QuestWithObjectives? = nul
 /**
  * When the phone is locked, and which apps stay usable. Pure, so it can be tested without Android.
  *
- * The lock only exists inside an open Penalty Quest window: it lifts by itself the moment the steps
- * are walked, when the window closes, or once the override code is used for that quest.
+ * The Penalty Lock exists only inside an open Penalty Quest window: it lifts by itself the moment
+ * the steps are walked, when the window closes, or once the override code is used for that quest.
+ * The Night Lock covers a daily window, and the override lifts it until morning.
  */
 object LockPolicy {
     /** Apps that are never blocked: calls, emergency, alarms. Launchers and Settings are not here on purpose. */
@@ -39,16 +52,42 @@ object LockPolicy {
     /** Windows that float over the foreground app (shade, keyboard) and say nothing about what's in use. */
     val TRANSIENT = setOf("com.android.systemui", "android")
 
-    fun state(settings: LockSettings, active: List<QuestWithObjectives>, now: Long): LockState {
+    /** Test lock first, then an open penalty window, then the Night Lock. */
+    fun state(settings: LockSettings, active: List<QuestWithObjectives>, now: Long, zone: ZoneId): LockState {
         if (!settings.armed) return LockState.Off
         if (now < settings.testUntil) return LockState(engaged = true, test = true)
-        val q = active.firstOrNull {
-            it.quest.kind == QuestKind.PENALTY &&
-                it.quest.status == QuestStatus.ACTIVE &&
-                now >= it.quest.startsAt && now < it.quest.deadline &&
-                it.quest.id != settings.overriddenQuestId
-        } ?: return LockState.Off
-        return LockState(engaged = true, quest = q)
+        if (settings.enabled) {
+            val q = active.firstOrNull {
+                it.quest.kind == QuestKind.PENALTY &&
+                    it.quest.status == QuestStatus.ACTIVE &&
+                    now >= it.quest.startsAt && now < it.quest.deadline &&
+                    it.quest.id != settings.overriddenQuestId
+            }
+            if (q != null) return LockState(engaged = true, quest = q)
+        }
+        if (settings.nightEnabled && now >= settings.nightLiftedUntil) {
+            val w = nightWindow(now, zone, settings.nightStart, settings.nightEnd)
+            if (w != null) return LockState(engaged = true, night = true, until = w.last + 1)
+        }
+        return LockState.Off
+    }
+
+    /**
+     * The night window containing [now], as `[start, end)` in epoch millis, or null if [now] is
+     * outside it. [start] and [end] are minutes after midnight; a window may cross midnight.
+     */
+    fun nightWindow(now: Long, zone: ZoneId, start: Int, end: Int): LongRange? {
+        if (start == end) return null
+        val here = Instant.ofEpochMilli(now).atZone(zone)
+        val today = here.toLocalDate()
+        fun at(date: LocalDate, minutes: Int) = date.atStartOfDay(zone).plusMinutes(minutes.toLong()).toInstant().toEpochMilli()
+        // The window can have started today or (when it crosses midnight) yesterday.
+        for (day in listOf(today, today.minusDays(1))) {
+            val s = at(day, start)
+            val e = if (end > start) at(day, end) else at(day.plusDays(1), end)
+            if (now in s until e) return s until e
+        }
+        return null
     }
 
     fun isEssential(pkg: String): Boolean = pkg in ESSENTIAL || pkg.startsWith("com.samsung.android.emergency")
