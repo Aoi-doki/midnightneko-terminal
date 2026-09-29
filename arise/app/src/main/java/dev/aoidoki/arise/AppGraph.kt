@@ -6,6 +6,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import dev.aoidoki.arise.ai.AiDirector
 import dev.aoidoki.arise.ai.LlmEngine
 import dev.aoidoki.arise.ai.ModelManager
+import dev.aoidoki.arise.ai.ModelState
 import dev.aoidoki.arise.core.TimeSource
 import dev.aoidoki.arise.data.AriseDatabase
 import dev.aoidoki.arise.data.SettingsStore
@@ -33,13 +34,19 @@ class AppGraph(private val context: Context) {
     val health by lazy { HealthRepo(context) }
     val models by lazy { ModelManager(context) }
     val llm by lazy { LlmEngine(context) }
-    val ai by lazy { AiDirector(models, llm, game, settings) }
+    val ai by lazy { AiDirector(context, models, llm, game, settings) }
 
     fun start() {
         Notifications.createChannels(context)
         // Every System event is spoken and, when the app isn't on screen, notified.
         scope.launch {
             game.events.collect { e -> dispatch(e) }
+        }
+        // When the core finishes installing, let it read the Player and rewrite today's quest.
+        scope.launch {
+            models.state.collect { m ->
+                if (m is ModelState.Ready && game.player() != null && ai.needsAssessment()) AiDirector.enqueue(context, "assess")
+            }
         }
         scope.launch {
             Scheduler.schedule(context)

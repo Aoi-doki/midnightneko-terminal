@@ -99,7 +99,9 @@ fun TrainScreen(
     val results = remember { mutableStateMapOf<ObjectiveType, Int>() }
 
     fun effectiveMode(t: ObjectiveType, m: TrackMode) = if (t == ObjectiveType.MEDITATE_MIN) TrackMode.SENSOR else m
-    LaunchedEffect(type, mode) { controller.configure(type, effectiveMode(type, mode)) }
+    // The chips are locked while a set runs, so a change while running can only come from an
+    // assessment step that has already configured and started its own set: leave that one alone.
+    LaunchedEffect(type, mode) { if (!controller.state.value.running) controller.configure(type, effectiveMode(type, mode)) }
     DisposableEffect(Unit) {
         controller.onRep = { n -> if (n % 10 == 0) say("$n") }
         onDispose { controller.release() }

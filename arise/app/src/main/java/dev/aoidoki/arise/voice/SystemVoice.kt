@@ -35,6 +35,7 @@ import java.util.Locale
 class SystemVoice(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val queue = Channel<Pair<String, VoiceSettings>>(Channel.BUFFERED)
+    @Volatile
     private var tts: TextToSpeech? = null
     private val ready = CompletableDeferred<Boolean>()
     private val cacheDir = File(context.cacheDir, "voice").apply { mkdirs() }
@@ -52,18 +53,26 @@ class SystemVoice(private val context: Context) {
         scope.launch { for ((text, s) in queue) runCatching { speakNow(text, s) }.onFailure { Log.w(TAG, "speak failed", it) } }
     }
 
-    @Synchronized
+    @Volatile
+    private var ttsRequested = false
+
+    /** TextToSpeech binds a service and calls back on the main thread, so it is created there. */
     private fun ensureTts() {
-        if (tts != null) return
-        tts = TextToSpeech(context.applicationContext) { status ->
-            val ok = status == TextToSpeech.SUCCESS
-            if (ok) {
-                runCatching {
-                    val all = tts?.voices.orEmpty().filter { !it.isNetworkConnectionRequired && it.locale.language == "en" }
-                    _voices.value = rank(all).map { it.name }
+        synchronized(this) {
+            if (ttsRequested) return
+            ttsRequested = true
+        }
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            tts = TextToSpeech(context.applicationContext) { status ->
+                val ok = status == TextToSpeech.SUCCESS
+                if (ok) {
+                    runCatching {
+                        val all = tts?.voices.orEmpty().filter { !it.isNetworkConnectionRequired && it.locale.language == "en" }
+                        _voices.value = rank(all).map { it.name }
+                    }
                 }
+                ready.complete(ok)
             }
-            ready.complete(ok)
         }
     }
 
@@ -187,7 +196,6 @@ class SystemVoice(private val context: Context) {
 
     fun shutdown() {
         tts?.shutdown()
-        tts = null
     }
 
     private fun sha(s: String): String =

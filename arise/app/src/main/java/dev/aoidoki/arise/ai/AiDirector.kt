@@ -31,11 +31,13 @@ import kotlinx.coroutines.flow.StateFlow
  * make the System smarter, never less safe, and never required.
  */
 class AiDirector(
+    context: Context,
     private val models: ModelManager,
     private val llm: LlmEngine,
     private val game: Game,
     private val settings: SettingsStore,
 ) {
+    private val prefs = context.getSharedPreferences("ai", Context.MODE_PRIVATE)
     private val _busy = MutableStateFlow<String?>(null)
     /** What the AI is doing right now, for the UI ("Analyzing Player…"), or null. */
     val busy: StateFlow<String?> = _busy
@@ -63,8 +65,15 @@ class AiDirector(
         val raw = llm.generate(model, Prompts.assessment(p, stats), temperature = 0.4f) ?: return@task null
         val a = AiJson.parseAssessment(raw) ?: llm.generate(model, repair(raw), temperature = 0.2f)?.let { AiJson.parseAssessment(it) } ?: return@task null
         game.applyAiAssessment(Game.AiAssessment(a.summary, a.stats, a.limitations, a.baselines, null))
+        prefs.edit().putString("assessed_with", model.label).apply()
         true
     } ?: false
+
+    /** True when the installed core hasn't read this Player yet (e.g. it finished downloading after the Awakening). */
+    fun needsAssessment(): Boolean {
+        val model = models.ready() ?: return false
+        return prefs.getString("assessed_with", null) != model.label
+    }
 
     /** Rewrite today's (untouched) Daily Quest around the Player. */
     suspend fun refineToday(reroll: Boolean = false): Boolean = task(if (reroll) "Rewriting the quest…" else "Calibrating today's quest…") { model ->

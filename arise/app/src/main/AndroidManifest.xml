@@ -56,6 +56,11 @@
         android:theme="@style/Theme.Arise"
         tools:targetApi="36">
 
+        <!-- The on-device LLM's GPU backend loads the vendor OpenCL driver. Optional: CPU is the fallback. -->
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL-car.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
