@@ -120,7 +120,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         extra.update { it.copy(power = power, trial = trial) }
     }
 
-    fun dismissPopup() = _popups.update { it.drop(1) }
+    fun dismissPopup() {
+        g.voice.stop()
+        _popups.update { it.drop(1) }
+    }
 
     fun onResume() = viewModelScope.launch {
         g.game.settle()
@@ -171,10 +174,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         refreshPower()
     }
 
-    fun setVoice(v: VoiceSettings) = viewModelScope.launch { g.settings.setVoice(v) }
+    fun setVoice(v: VoiceSettings) = viewModelScope.launch {
+        g.settings.setVoice(v)
+        // New voice settings mean new audio: re-render the fixed lines so they stay instant.
+        g.voice.prewarm(dev.aoidoki.arise.voice.Lines.all, v)
+    }
     fun testVoice(v: VoiceSettings) = g.voice.say("Welcome, Player. The daily quest has arrived. Failure to complete it will result in an appropriate penalty.", v.copy(enabled = true))
     fun voices() = g.voice.voices
     fun say(text: String) = viewModelScope.launch { g.voice.say(text, g.settings.current().voice) }
+    fun stopVoice() = g.voice.stop()
+    fun isSpeaking(): Boolean = g.voice.speaking.value
 
     fun setImperial(b: Boolean) = viewModelScope.launch { g.settings.setImperial(b) }
     fun setWifiOnly(b: Boolean) = viewModelScope.launch { g.settings.setWifiOnly(b) }

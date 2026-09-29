@@ -14,6 +14,7 @@ import dev.aoidoki.arise.engine.Game
 import dev.aoidoki.arise.engine.SystemEvent
 import dev.aoidoki.arise.sense.HealthRepo
 import dev.aoidoki.arise.sense.StepTrackerService
+import dev.aoidoki.arise.voice.Lines
 import dev.aoidoki.arise.voice.SystemVoice
 import dev.aoidoki.arise.work.Notifications
 import dev.aoidoki.arise.work.Scheduler
@@ -38,6 +39,9 @@ class AppGraph(private val context: Context) {
 
     fun start() {
         Notifications.createChannels(context)
+        // Bind TTS and render the fixed System lines now, so the first announcement isn't the slow one.
+        voice.warmUp()
+        scope.launch { voice.prewarm(Lines.all, settings.current().voice) }
         // Every System event is spoken and, when the app isn't on screen, notified.
         scope.launch {
             game.events.collect { e -> dispatch(e) }
@@ -59,8 +63,10 @@ class AppGraph(private val context: Context) {
 
     private suspend fun dispatch(e: SystemEvent) {
         val s = settings.flow.first()
-        voice.say(e.speech, s.voice)
         val foreground = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        // On screen, the popup speaks its own line the moment it appears (ui/Root.kt EventPopup), so
+        // voice and window stay in step. Progress ticks have no popup, and off screen there is none.
+        if (!foreground || e.type == SystemEvent.Type.QUEST_PROGRESS) voice.say(e.speech, s.voice)
         if (!foreground && e.type != SystemEvent.Type.QUEST_PROGRESS) Notifications.event(context, e)
         if (e.type == SystemEvent.Type.QUEST_ARRIVED && e.title == "Daily Quest Has Arrived") {
             AiDirector.enqueue(context, "daily")
