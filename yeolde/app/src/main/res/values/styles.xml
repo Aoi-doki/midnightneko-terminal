@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.YeOlde" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0a0a0f</item>
+        <item name="android:statusBarColor">#0a0a0f</item>
+        <item name="android:navigationBarColor">#0a0a0f</item>
+        <item name="android:colorAccent">#8B5CF6</item>
+        <item name="android:colorControlActivated">#8B5CF6</item>
+        <item name="android:textColorPrimary">#e4e2f0</item>
+        <item name="android:textColorHint">#6f6c85</item>
+    </style>
+</resources>

@@ -1,0 +1,150 @@
+name: yeolde
+
+# Ye Olde Keys (the keyboard) is a standalone Gradle project in yeolde/. This workflow tests,
+# lints and builds it, and, when asked, publishes the APK as a GitHub pre-release. It never touches
+# the Mayonaka build at the repository root.
+
+on:
+  push:
+    paths:
+      - "yeolde/**"
+      - ".github/workflows/yeolde.yml"
+  pull_request:
+    paths:
+      - "yeolde/**"
+      - ".github/workflows/yeolde.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the APK as a GitHub pre-release
+        type: boolean
+        default: false
+      version:
+        description: Version to stamp and publish (MAJOR.MINOR.PATCH)
+        default: "1.0.0"
+
+concurrency:
+  group: yeolde-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Test, lint and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yeolde
+    outputs:
+      version: ${{ steps.version.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ""
+
+      - name: Install SDK packages
+        run: sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: yeolde-gradle-${{ runner.os }}-${{ hashFiles('yeolde/**/*.gradle', 'yeolde/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: yeolde-gradle-${{ runner.os }}-
+
+      - name: Work out the version
+        id: version
+        run: |
+          set -euo pipefail
+          name="${{ inputs.version || '1.0.0' }}"
+          name="${name#v}"
+          IFS=. read -r major minor patch <<< "$name"
+          if ! [[ "$major$minor$patch" =~ ^[0-9]+$ ]]; then echo "version '$name' is not MAJOR.MINOR.PATCH" >&2; exit 1; fi
+          code=$(( major * 10000 + minor * 100 + patch ))
+          # Push builds get the run number on top so every CI APK installs over the last.
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then code=$(( code * 100 + (${{ github.run_number }} % 100) )); fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Lint and build
+        env:
+          YEOLDE_VERSION_NAME: ${{ steps.version.outputs.name }}
+          YEOLDE_VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: ./gradlew lintRelease assembleRelease --stacktrace
+
+      - name: Verify the APK
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/release/app-release.apk
+          bt="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$bt/apksigner" verify --print-certs "$apk" | tee /tmp/certs.txt
+          expected="$(keytool -list -v -keystore yeolde.jks -storepass yeoldekeys | sed -n 's/.*SHA256: //p' | head -1 | tr -d ': ' | tr 'A-F' 'a-f')"
+          actual="$(sed -n 's/.*SHA-256 digest: //p' /tmp/certs.txt | head -1 | tr -d ': ' | tr 'A-F' 'a-f')"
+          test "$expected" = "$actual"
+          "$bt/aapt2" dump badging "$apk" > /tmp/badging.txt
+          grep -q "package: name='dev.aoidoki.yeoldekeys'" /tmp/badging.txt
+          grep -q "application-label:'Ye Olde Keys'" /tmp/badging.txt
+          "$bt/aapt2" dump xmltree "$apk" --file AndroidManifest.xml > /tmp/manifest.txt
+          grep -q 'BIND_INPUT_METHOD' /tmp/manifest.txt
+          grep -q 'android.view.InputMethod' /tmp/manifest.txt
+          sha256sum "$apk"
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: yeolde-apk
+          path: yeolde/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yeolde-reports
+          path: |
+            yeolde/app/build/reports/**
+            yeolde/app/build/test-results/**
+          if-no-files-found: ignore
+
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: yeolde-apk
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          mv app-release.apk "YeOldeKeys-v${VERSION}.apk"
+          cat > notes.md <<'EOF2'
+          **Ye Olde Keys** — a keyboard that turns what you type into formal Ye Olde English.
+
+          Install the APK, open the app, enable the keyboard in settings and pick it from the keyboard
+          switcher. It is a separate app from Mayonaka and does not touch Termux.
+          EOF2
+          gh release create "yeolde-v${VERSION}" "YeOldeKeys-v${VERSION}.apk" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Ye Olde Keys v${VERSION}" \
+            --notes-file notes.md \
+            --prerelease
