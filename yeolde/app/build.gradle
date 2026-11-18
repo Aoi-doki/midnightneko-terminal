@@ -1,0 +1,71 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+}
+
+android {
+    namespace "dev.aoidoki.yeoldekeys"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "dev.aoidoki.yeoldekeys"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "1.0.0"
+
+        // CI stamps these from the release version so every published build installs over the last.
+        def envName = System.getenv("YEOLDE_VERSION_NAME") ?: ""
+        def envCode = System.getenv("YEOLDE_VERSION_CODE") ?: ""
+        if (envName) versionName = envName
+        if (envCode) versionCode = envCode.toInteger()
+    }
+
+    signingConfigs {
+        // Committed on purpose, like mayonaka.jks at the repo root: a stable key means every build
+        // installs over the previous one instead of forcing an uninstall.
+        yeolde {
+            storeFile rootProject.file("yeolde.jks")
+            storePassword "yeoldekeys"
+            keyAlias "yeolde"
+            keyPassword "yeoldekeys"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            signingConfig signingConfigs.yeolde
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            signingConfig signingConfigs.yeolde
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+        warningsAsErrors false
+        disable += ["MissingTranslation", "GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion"]
+    }
+}
+
+kotlin {
+    jvmToolchain(21)
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+dependencies {
+    testImplementation "junit:junit:4.13.2"
+}

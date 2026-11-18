@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ye Olde Keys</string>
+    <string name="subtype_label">English (Ye Olde)</string>
+    <string name="toggle_on">Olde · ON</string>
+    <string name="toggle_off">Olde · OFF</string>
+</resources>
